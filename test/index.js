@@ -252,6 +252,17 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
 
             t.strictEqual(fn(otherWrappedFn), 36);
         });
+
+        test('realm identity is not leaked', t => {
+            const redFn = otherRealm.Function('cb', 'return cb instanceof Function;');
+            t.ok(redFn(wrappedFn));
+
+            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
+
+            const fn = otherRealm.Function('cb', 'return cb() instanceof Function');
+
+            t.ok(fn(otherWrappedFn));
+        });
     });
 
     // test('')
