@@ -9,5 +9,17 @@
 <body>
     <h1>Hello World!</h1>
     <script type="module" src="index.js"></script>
+    <script type="module">
+        var r = new Realm();
+        var fn = r.wrapperCallbackFunction((x, y) => {
+            called += 1;
+            return x * y;
+        });
+
+        const redFn = r.Function('cb', 'console.log(cb.toString()); return cb instanceof Function;');
+        const res = redFn(fn);
+
+        console.log(res);
+    </script>
 </body>
 </html>

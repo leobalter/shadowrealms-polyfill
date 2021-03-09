@@ -214,18 +214,6 @@ describe('Realm#wrapperCallbackFunction', () => {
             expect(res).toBe('function');
         });
 
-        test('incubator realm is not leaked', () => {
-            const redFn = r.Function('cb', 'console.log(cb.toString()); return cb instanceof Function;');
-            const res = redFn(fn);
-            expect(res).toBeTruphy();
-        });
-
-        test('incubator realm is not leaked #2', () => {
-            const redFn = r.Function('cb', 'return Object.getPrototypeOf(cb) === Function.prototype');
-            const res = redFn(fn);
-            expect(res).toBeTruphy();
-        });
-
         test('return value', () => {
             const redFn = r.Function('cb', 'return cb(20, 2) + 2;');
 
@@ -234,6 +222,20 @@ describe('Realm#wrapperCallbackFunction', () => {
             expect(res).toBe(42);
             expect(called).toBe(1);
         });
+
+        test('incubator realm is not leaked', () => {
+            const redFn = r.Function('cb', 'console.log(cb.toString()); return cb instanceof Function;');
+            const res = redFn(fn);
+            expect(res).toBeTruphy();
+        });
+
+        test('incubator realm is not leaked #2', () => {
+            const redFn = r.Function('cb', 'return Object.getPrototypeOf(cb)');
+            const res = redFn(fn);
+            expect(res).toBeTruphy();
+        });
+
+
     });
 
     describe('can be used as argument of another realm function', () => {

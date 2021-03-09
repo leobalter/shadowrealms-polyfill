@@ -82,7 +82,7 @@ window.Realm = class {
                 }
             });
 
-            const res = fn(...primArgs);
+            const res = errorCatcher(() => fn(...primArgs));
 
             if (!isPrimitive(res)) {
                 throw new TypeError('Cross-Realm Error: function is not a primitive value');
@@ -108,8 +108,8 @@ window.Realm = class {
 
     wrapperCallbackFunction(callback) {
         const res = (...args) => callback(...args);
-        
-        const wrapper = new this.#globalThis.Function('cb', 'return function(...args) { return cb(...args); };');
+
+        const wrapper = new this.#globalThis.Function('cb', 'function wrapper(...args) { return cb(...args); } return wrapper;');
 
         // TODO: set internal
         Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
