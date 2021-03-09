@@ -232,12 +232,26 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
             const res = redFn(fn);
             t.ok(res);
         });
-
-
     });
 
-    module('can be used as argument of another realm function', () => {
+    module('multiple realms', ({ beforeEach }) => {
+        let wrappedFn, otherRealm;
+        
+        beforeEach(() => {
+            wrappedFn = r.wrapperCallbackFunction((x, y) => x * y);
+            otherRealm = new Realm();
+        });
 
+        test('wrapped function is executed in another realm', t => {
+            const redFn = otherRealm.Function('cb', 'return cb(7, 11);');
+            t.strictEqual(redFn(wrappedFn), 77);
+
+            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
+
+            const fn = otherRealm.Function('cb', 'return cb()(4, 9)');
+
+            t.strictEqual(fn(otherWrappedFn), 36);
+        });
     });
 
     // test('')
