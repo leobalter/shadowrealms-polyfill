@@ -1,6 +1,9 @@
 window.Realm = class {
     constructor() {
         const iframe = this.#iframe;
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+        iframe.style.display = 'none';
+
         document.body.appendChild(iframe);
         
         const { contentWindow } = iframe;
@@ -32,11 +35,6 @@ window.Realm = class {
 
         return res;
     }
-
-    // TODO: remove exposure of globalThis
-    get globalThis() {
-        return this.#globalThis;
-    };
 
     #errorCatcher(fn) {
         try {
