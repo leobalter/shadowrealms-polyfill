@@ -17,8 +17,11 @@ module.exports = function(config) {
     colors: true,
     logLevel: config.LOG_INFO,
     autoWatch: true,
-    browsers: ['ChromeHeadless'],
+    browsers: ['ChromeHeadless'], // , 'Firefox', 'Safari'],
     singleRun: false,
-    concurrency: Infinity
+    concurrency: Infinity,
+    converageReporter: {
+      reporters: ['html', 'text-summary']
+    }
   });
 };
