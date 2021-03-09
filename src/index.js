@@ -24,7 +24,7 @@ window.Realm = class {
     }
 
     eval(str) {
-        var res = this.#errorTrap(() => this.#eval(str));
+        var res = this.#errorCatcher(() => this.#eval(str));
 
         if (!this.#isPrimitive(res)) {
             throw new TypeError('Evaluation result is not a primitive value');
@@ -38,7 +38,7 @@ window.Realm = class {
         return this.#globalThis;
     };
 
-    #errorTrap(fn) {
+    #errorCatcher(fn) {
         try {
             return fn();
         } catch(err) {
@@ -66,7 +66,7 @@ window.Realm = class {
     }
 
     get Function() {
-        const errorTrap = this.#errorTrap;
+        const errorCatcher = this.#errorCatcher;
         const redFunction = this.#Function;
         const getPrimitives = this.#getPrimitives.bind(this);
         const isPrimitive = this.#isPrimitive;
@@ -96,9 +96,9 @@ window.Realm = class {
             const primArgs = getPrimitives(args);
 
             if (newTarget) {
-                errorTrap(() => fn = Reflect.construct(redFunction, primArgs, newTarget));
+                errorCatcher(() => fn = Reflect.construct(redFunction, primArgs, newTarget));
             } else {
-                errorTrap(() => fn = redFunction(...primArgs));
+                errorCatcher(() => fn = redFunction(...primArgs));
             }
 
             return make(fn);
