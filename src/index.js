@@ -8,6 +8,8 @@ window.Realm = class {
         this.#Function = contentWindow.Function;
         this.#AsyncFunction = contentWindow.AsyncFunction;
         this.#eval = contentWindow.eval;
+
+        this.#fakeIntrinsic = this.constructor;
     }
 
     #iframe = document.createElement('iframe');
@@ -15,6 +17,7 @@ window.Realm = class {
     #globalThis;
     #Function;
     #AsyncFunction;
+    #fakeIntrinsic;
 
     #isPrimitive(value) {
         return value === null || (typeof value !== 'function' && typeof value !== 'object');
@@ -50,6 +53,9 @@ window.Realm = class {
     #getPrimitives(args) {
         return args.map(arg => {
             if (this.#isPrimitive(arg)) {
+                return arg;
+            } else if (arg && arg[this.#fakeIntrinsic.#WRAPPER]) {
+                // Skip if arg is a wrapped function
                 return arg;
             } else if (arg[Symbol.toPrimitive]) {
                 return arg[Symbol.toPrimitive]();
@@ -88,9 +94,21 @@ window.Realm = class {
         };
     }
     AsyncFunction(...args) {}
+
     wrapperCallbackFunction(callback) {
-        return function() {
-            return callback();
+        const wrapper = new this.#globalThis.Function('cb', '...args', 'return cb(...args);');
+
+        const res = function(...args) {
+            return callback(...args);
         };
+
+        // TODO: set internal
+        Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
+            value: wrapper
+        });
+        
+        return res;
     }
+
+    static #WRAPPER = Symbol();
 }

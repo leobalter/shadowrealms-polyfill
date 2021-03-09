@@ -108,13 +108,22 @@ describe('Realm#Function', () => {
             expect(coerced(5)).toBe(10);
         });
 
-        test('function args', () => {
+        test('non primitive args are coerced', () => {
             const checkTypes = r.Function('...args', `
                 const res = args.filter(arg => typeof arg === 'string');
                 return res.length === args.length;
             `);
             expect(checkTypes({}, {toString() {return 'a';}}, [])).toBeTruthy();
+
+            function noop() { /* lol */ }
+            function asyncNoop() { /* I'm coerced into a string */ }
+            function generatorNoop() { return 42; }
+            function asyncGeneratorNoop() {}
+            const arrowNoop = () => {};
+
+            expect(checkTypes(noop, asyncNoop, generatorNoop, asyncGeneratorNoop, arrowNoop)).toBeTruthy();
         });
+
     });
 
     describe('function can only return primitives', () => {
@@ -167,9 +176,60 @@ describe('Realm#wrapperCallbackFunction', () => {
 
         expect(typeof fn).toBe('function');
 
-        var res = fn();
+        const res = fn();
         expect(called).toBe(1);
         expect(res).toBe(1);
+    });
+
+    test('takes arguments', () => {
+        const fn = r.wrapperCallbackFunction((x) => { return x * 2; });
+
+        const res = fn(21);
+        expect(res).toBe(42);
+    });
+
+    describe('can be used as argument of a realm function', () => {
+        let called, fn;
+        beforeEach(() => {
+            called = 0;
+            fn = r.wrapperCallbackFunction((x, y) => {
+                called += 1;
+                return x * y;
+            });
+        });
+
+        test('typeof', () => {
+            const redFn = r.Function('cb', 'return typeof cb;');
+
+            const res = redFn(fn);
+
+            expect(res).toBe('function');
+        });
+
+        test('incubator realm is not leaked', () => {
+            const redFn = r.Function('cb', 'return cb instanceof Function;');
+            const res = redFn(fn);
+            expect(res).toBeTruphy();
+        });
+
+        test('incubator realm is not leaked #2', () => {
+            const redFn = r.Function('cb', 'return Object.getPrototypeOf(cb) === Function.prototype');
+            const res = redFn(fn);
+            expect(res).toBeTruphy();
+        });
+
+        test('return value', () => {
+            const redFn = r.Function('cb', 'return cb(20, 2) + 2;');
+
+            const res = redFn(fn);
+
+            expect(res).toBe(42);
+            expect(called).toBe(1);
+        });
+    });
+
+    describe('can be used as argument of another realm function', () => {
+
     });
 
     // test('')
