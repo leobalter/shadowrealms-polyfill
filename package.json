@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "karma start karma.conf.js",
-    "ci": "karma start --browsers=ChromeHeadless --single-run karma.conf.js"
+    "ci": "karma start --browsers=ChromeHeadless --single-run"
   },
   "keywords": [],
   "author": "",
