@@ -75,7 +75,6 @@ window.Realm = class {
         const make = fn => (...args) => {
             const primArgs = getPrimitives(args, true).map(arg => {
                 if (typeof arg === 'function' && arg[wrapperSymbol]) {
-                    console.log('1.....', arg[wrapperSymbol].toString(), args);
                     return arg[wrapperSymbol];
                 } else {
                     return arg;

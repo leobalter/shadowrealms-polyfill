@@ -1,5 +1,5 @@
-const { expectCt } = require('helmet');
-const { TestScheduler } = require('jest');
+// const { expectCt } = require('helmet');
+// const { TestScheduler } = require('jest');
 
 require('./index');
 
@@ -224,7 +224,7 @@ describe('Realm#wrapperCallbackFunction', () => {
         });
 
         test('incubator realm is not leaked', () => {
-            const redFn = r.Function('cb', 'console.log(cb.toString()); return cb instanceof Function;');
+            const redFn = r.Function('cb', 'return cb instanceof Function;');
             const res = redFn(fn);
             expect(res).toBeTruphy();
         });
