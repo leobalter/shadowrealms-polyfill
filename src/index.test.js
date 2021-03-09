@@ -149,6 +149,14 @@ describe('Realm#Function', () => {
             });
         });
     });
+
+    describe('wraps errors', () => {
+        test('Any error from the function execution is wrapped into a TypeError', () => {
+            const redFn = r.Function('throw 42;');
+
+            expect(() => redFn()).toThrow(TypeError);
+        });
+    });
 });
 
 describe('Realm#wrapperCallbackFunction', () => {
@@ -207,7 +215,7 @@ describe('Realm#wrapperCallbackFunction', () => {
         });
 
         test('incubator realm is not leaked', () => {
-            const redFn = r.Function('cb', 'return cb instanceof Function;');
+            const redFn = r.Function('cb', 'console.log(cb.toString()); return cb instanceof Function;');
             const res = redFn(fn);
             expect(res).toBeTruphy();
         });

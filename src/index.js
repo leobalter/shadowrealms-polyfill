@@ -50,11 +50,11 @@ window.Realm = class {
     }
 
     // TODO: use a full toPrimitive helper
-    #getPrimitives(args) {
+    #getPrimitives(args, skipWrappers) {
         return args.map(arg => {
             if (this.#isPrimitive(arg)) {
                 return arg;
-            } else if (arg && arg[this.#fakeIntrinsic.#WRAPPER]) {
+            } else if (skipWrappers && arg && arg[this.#fakeIntrinsic.#WRAPPER]) {
                 // Skip if arg is a wrapped function
                 return arg;
             } else if (arg[Symbol.toPrimitive]) {
@@ -70,6 +70,26 @@ window.Realm = class {
         const redFunction = this.#Function;
         const getPrimitives = this.#getPrimitives.bind(this);
         const isPrimitive = this.#isPrimitive;
+        const wrapperSymbol = this.#fakeIntrinsic.#WRAPPER;
+
+        const make = fn => (...args) => {
+            const primArgs = getPrimitives(args, true).map(arg => {
+                if (typeof arg === 'function' && arg[wrapperSymbol]) {
+                    console.log('1.....', arg[wrapperSymbol].toString(), args);
+                    return arg[wrapperSymbol];
+                } else {
+                    return arg;
+                }
+            });
+
+            const res = fn(...primArgs);
+
+            if (!isPrimitive(res)) {
+                throw new TypeError('Cross-Realm Error: function is not a primitive value');
+            }
+
+            return res;
+        };
         return function Function(...args) {
             let fn;
             const newTarget = new.target;
@@ -81,30 +101,19 @@ window.Realm = class {
                 errorTrap(() => fn = redFunction(...primArgs));
             }
 
-            return (...args) => {
-                const primArgs = getPrimitives(args);
-                const res = fn(...primArgs);
-
-                if (!isPrimitive(res)) {
-                    throw new TypeError('Cross-Realm Error: function is not a primitive value');
-                }
-
-                return res;
-            };
+            return make(fn);
         };
     }
     AsyncFunction(...args) {}
 
     wrapperCallbackFunction(callback) {
-        const wrapper = new this.#globalThis.Function('cb', '...args', 'return cb(...args);');
-
-        const res = function(...args) {
-            return callback(...args);
-        };
+        const res = (...args) => callback(...args);
+        
+        const wrapper = new this.#globalThis.Function('cb', 'return function(...args) { return cb(...args); };');
 
         // TODO: set internal
         Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
-            value: wrapper
+            value: wrapper(res)
         });
         
         return res;
