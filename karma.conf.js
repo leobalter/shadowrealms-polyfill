@@ -21,7 +21,10 @@ module.exports = function(config) {
     singleRun: false,
     concurrency: Infinity,
     converageReporter: {
-      reporters: ['html', 'text-summary']
+      // reporters: ['html', 'text-summary'],
+      type: 'text',
+      dir: 'coverage/',
+      file: 'coverage.txt'
     }
   });
 };

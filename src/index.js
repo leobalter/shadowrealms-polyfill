@@ -12,15 +12,17 @@ window.Realm = class {
         this.#AsyncFunction = contentWindow.AsyncFunction;
         this.#eval = contentWindow.eval;
 
-        this.#fakeIntrinsic = this.constructor;
+        this.#fakeIntrinsic;
     }
 
-    #iframe = document.createElement('iframe');
     #eval;
     #globalThis;
     #Function;
     #AsyncFunction;
-    #fakeIntrinsic;
+    #iframe = document.createElement('iframe');
+
+    // This simulates the `%Realm%` preserved value
+    #fakeIntrinsic = this.constructor;
 
     #isPrimitive(value) {
         return value === null || (typeof value !== 'function' && typeof value !== 'object');
