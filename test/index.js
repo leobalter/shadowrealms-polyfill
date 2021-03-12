@@ -402,9 +402,14 @@ module('Realm#AsyncFunction', ({ beforeEach }) => {
         });
     });
 
-    test('Any error from the function execution is wrapped into a TypeError', async t => {
+    test('Any rejection is wrapped into a TypeError', async t => {
         const redFn = r.AsyncFunction('throw 42;');
 
-        t.throws(() => redFn(), TypeError);
+        const p = redFn();
+
+        let err;
+        await p.catch(e => err = e);
+
+        t.strictEqual(err.constructor, TypeError);
     });
 });
