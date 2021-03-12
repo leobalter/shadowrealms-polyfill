@@ -165,117 +165,6 @@ module('Realm#Function', ({ beforeEach }) => {
     });
 });
 
-module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
-    /***
-     * const fn = r.wrapperCallbackFunction(function (a, b, c) {
-     *     return a + b + c;
-     * });
-     * 
-     * const redFn = r.Function('callback', `
-     *     callback.toString(); // native
-     *     return callback(1, 2, 3);
-     * `);
-     * 
-     * redFn(fn); // yield 6
-     */
-
-    let r;
-    beforeEach(() => {
-        r = new Realm();
-    });
-
-    test('returns a new function that eventually calls the given callback', t => {
-        let called = 0;
-        const fn = r.wrapperCallbackFunction(() => { return called += 1; });
-
-        t.strictEqual(typeof fn, 'function');
-
-        const res = fn();
-        t.strictEqual(called, 1);
-        t.strictEqual(res, 1);
-    });
-
-    test('takes arguments', t => {
-        const fn = r.wrapperCallbackFunction((x) => { return x * 2; });
-
-        const res = fn(21);
-        t.strictEqual(res, 42);
-    });
-
-    module('can be used as argument of a realm function', ({ beforeEach }) => {
-        let called, fn;
-        beforeEach(() => {
-            called = 0;
-            fn = r.wrapperCallbackFunction((x, y) => {
-                called += 1;
-                return x * y;
-            });
-        });
-
-        test('typeof', t => {
-            const redFn = r.Function('cb', 'return typeof cb;');
-
-            const res = redFn(fn);
-
-            t.strictEqual(res, 'function');
-        });
-
-        test('return value', t => {
-            const redFn = r.Function('cb', 'return cb(20, 2) + 2;');
-
-            const res = redFn(fn);
-
-            t.strictEqual(res, 42);
-            t.strictEqual(called, 1);
-        });
-
-        test('incubator realm is not leaked', t => {
-            const redFn = r.Function('cb', 'return cb instanceof Function;');
-            const res = redFn(fn);
-            t.ok(res);
-        });
-
-        test('incubator realm is not leaked #2', t => {
-            const redFn = r.Function('cb', 'return Object.getPrototypeOf(cb) === Function.prototype');
-            const res = redFn(fn);
-            t.ok(res);
-        });
-    });
-
-    module('multiple realms', ({ beforeEach }) => {
-        let wrappedFn, otherRealm;
-
-        beforeEach(() => {
-            wrappedFn = r.wrapperCallbackFunction((x, y) => x * y);
-            otherRealm = new Realm();
-        });
-
-        test('wrapped function is executed in another realm', t => {
-            const redFn = otherRealm.Function('cb', 'return cb(7, 11);');
-            t.strictEqual(redFn(wrappedFn), 77);
-
-            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
-
-            const fn = otherRealm.Function('cb', 'return cb()(4, 9)');
-
-            t.strictEqual(fn(otherWrappedFn), 36);
-        });
-
-        test.skip('identity is not leaked', t => {
-            const redFn = otherRealm.Function('cb', 'return cb instanceof Function;');
-            t.ok(redFn(wrappedFn), '#1');
-
-            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
-
-            const fn = otherRealm.Function('cb', 'return cb() instanceof Function');
-
-            t.ok(fn(otherWrappedFn), '#1');
-        });
-    });
-
-    // test('')
-});
-
 module('Realm#AsyncFunction', ({ beforeEach }) => {
 
     // %AsyncFunction% is not exposed
@@ -411,5 +300,114 @@ module('Realm#AsyncFunction', ({ beforeEach }) => {
         await p.catch(e => err = e);
 
         t.strictEqual(err.constructor, TypeError);
+    });
+});
+
+module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
+    /***
+     * const fn = r.wrapperCallbackFunction(function (a, b, c) {
+     *     return a + b + c;
+     * });
+     * 
+     * const redFn = r.Function('callback', `
+     *     callback.toString(); // native
+     *     return callback(1, 2, 3);
+     * `);
+     * 
+     * redFn(fn); // yield 6
+     */
+
+    let r;
+    beforeEach(() => {
+        r = new Realm();
+    });
+
+    test('returns a new function that eventually calls the given callback', t => {
+        let called = 0;
+        const fn = r.wrapperCallbackFunction(() => { return called += 1; });
+
+        t.strictEqual(typeof fn, 'function');
+
+        const res = fn();
+        t.strictEqual(called, 1);
+        t.strictEqual(res, 1);
+    });
+
+    test('takes arguments', t => {
+        const fn = r.wrapperCallbackFunction((x) => { return x * 2; });
+
+        const res = fn(21);
+        t.strictEqual(res, 42);
+    });
+
+    module('can be used as argument of a realm function', ({ beforeEach }) => {
+        let called, fn;
+        beforeEach(() => {
+            called = 0;
+            fn = r.wrapperCallbackFunction((x, y) => {
+                called += 1;
+                return x * y;
+            });
+        });
+
+        test('typeof', t => {
+            const redFn = r.Function('cb', 'return typeof cb;');
+
+            const res = redFn(fn);
+
+            t.strictEqual(res, 'function');
+        });
+
+        test('return value', t => {
+            const redFn = r.Function('cb', 'return cb(20, 2) + 2;');
+
+            const res = redFn(fn);
+
+            t.strictEqual(res, 42);
+            t.strictEqual(called, 1);
+        });
+
+        test('incubator realm is not leaked', t => {
+            const redFn = r.Function('cb', 'return cb instanceof Function;');
+            const res = redFn(fn);
+            t.ok(res);
+        });
+
+        test('incubator realm is not leaked #2', t => {
+            const redFn = r.Function('cb', 'return Object.getPrototypeOf(cb) === Function.prototype');
+            const res = redFn(fn);
+            t.ok(res);
+        });
+    });
+
+    module('multiple realms', ({ beforeEach }) => {
+        let wrappedFn, otherRealm;
+
+        beforeEach(() => {
+            wrappedFn = r.wrapperCallbackFunction((x, y) => x * y);
+            otherRealm = new Realm();
+        });
+
+        test('wrapped function is executed in another realm', t => {
+            const redFn = otherRealm.Function('cb', 'return cb(7, 11);');
+            t.strictEqual(redFn(wrappedFn), 77);
+
+            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
+
+            const fn = otherRealm.Function('cb', 'return cb()(4, 9)');
+
+            t.strictEqual(fn(otherWrappedFn), 36);
+        });
+
+        test.skip('identity is not leaked', t => {
+            const redFn = otherRealm.Function('cb', 'return cb instanceof Function;');
+            t.ok(redFn(wrappedFn), '#1');
+
+            const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
+
+            const fn = otherRealm.Function('cb', 'return cb() instanceof Function');
+
+            t.ok(fn(otherWrappedFn), '#1');
+        });
     });
 });
