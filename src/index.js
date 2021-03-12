@@ -5,20 +5,25 @@ window.Realm = class {
         iframe.style.display = 'none';
 
         document.body.appendChild(iframe);
-        
+
         const { contentWindow } = iframe;
         this.#globalThis = contentWindow.globalThis;
-        this.#Function = contentWindow.Function;
-        this.#AsyncFunction = contentWindow.AsyncFunction;
-        this.#eval = contentWindow.eval;
+        this.#RedFunction = contentWindow.Function;
+        this.#RedEval = contentWindow.eval;
+        this.#RedAsyncFunction = contentWindow.eval('(async function() {}).constructor');
 
         this.#fakeIntrinsic;
     }
 
-    #eval;
+    #RedEval;
     #globalThis;
-    #Function;
-    #AsyncFunction;
+    #RedFunction;
+    #RedAsyncFunction;
+
+    #BlueFunction = Function;
+    #BlueAsyncFunction = (async function () {}).constructor;
+    #BluePromise = Promise;
+
     #iframe = document.createElement('iframe');
 
     // This simulates the `%Realm%` preserved value
@@ -29,7 +34,7 @@ window.Realm = class {
     }
 
     eval(str) {
-        var res = this.#errorCatcher(() => this.#eval(str));
+        var res = this.#errorCatcher(() => this.#RedEval(str));
 
         if (!this.#isPrimitive(res)) {
             throw new TypeError('Evaluation result is not a primitive value');
@@ -65,14 +70,13 @@ window.Realm = class {
         });
     }
 
-    get Function() {
+    #channelFunction(redFn) {
         const errorCatcher = this.#errorCatcher;
-        const redFunction = this.#Function;
         const getPrimitives = this.#getPrimitives.bind(this);
         const isPrimitive = this.#isPrimitive;
         const wrapperSymbol = this.#fakeIntrinsic.#WRAPPER;
 
-        const make = fn => (...args) => {
+        return (...args) => {
             const primArgs = getPrimitives(args, true).map(arg => {
                 if (typeof arg === 'function' && arg[wrapperSymbol]) {
                     return arg[wrapperSymbol];
@@ -81,7 +85,7 @@ window.Realm = class {
                 }
             });
 
-            const res = errorCatcher(() => fn(...primArgs));
+            const res = errorCatcher(() => redFn(...primArgs));
 
             if (!isPrimitive(res)) {
                 throw new TypeError('Cross-Realm Error: function is not a primitive value');
@@ -89,21 +93,80 @@ window.Realm = class {
 
             return res;
         };
-        return function Function(...args) {
-            let fn;
+    }
+
+    #channelAsyncFunction(redFn) {
+        const errorCatcher = this.#errorCatcher;
+        const getPrimitives = this.#getPrimitives.bind(this);
+        const isPrimitive = this.#isPrimitive;
+        const wrapperSymbol = this.#fakeIntrinsic.#WRAPPER;
+
+        return async (...args) => {
+            const primArgs = getPrimitives(args, true).map(arg => {
+                if (typeof arg === 'function' && arg[wrapperSymbol]) {
+                    return arg[wrapperSymbol];
+                } else {
+                    return arg;
+                }
+            });
+
+            // Needs to unwrap the promise from the other realm
+            let res;
+
+            try {
+                res = await redFn(...primArgs);
+            } catch (err) {
+                // errorCatcher will handle the error without creating a new async function
+                errorCatcher(() => { throw err; });
+            }
+
+            if (!isPrimitive(res)) {
+                throw new TypeError('Cross-Realm Error: function is not a primitive value');
+            }
+
+            // TODO: res cannot be an object
+            return res;
+        };
+    }
+
+    get Function() {
+        const errorCatcher = this.#errorCatcher;
+        const getPrimitives = this.#getPrimitives.bind(this);
+        const redFunction = this.#RedFunction;
+
+        const channel = this.#channelFunction.bind(this);
+
+        return function(...args) {
+            let redFn;
             const newTarget = new.target;
             const primArgs = getPrimitives(args);
 
             if (newTarget) {
-                errorCatcher(() => fn = Reflect.construct(redFunction, primArgs, newTarget));
+                // TODO: Should remove the newTarget to avoid identity leaking?
+                redFn = errorCatcher(() => Reflect.construct(redFunction, primArgs, newTarget));
             } else {
-                errorCatcher(() => fn = redFunction(...primArgs));
+                redFn = errorCatcher(() => redFunction(...primArgs));
             }
 
-            return make(fn);
+            return channel(redFn);
         };
     }
-    AsyncFunction(...args) {}
+
+    get AsyncFunction() {
+        const errorCatcher = this.#errorCatcher;
+        const getPrimitives = this.#getPrimitives.bind(this);
+        const redAsyncFunction = this.#RedAsyncFunction;
+        const channel = this.#channelAsyncFunction.bind(this);
+
+        return function(...args) {
+            let redFn;
+            const primArgs = getPrimitives(args);
+
+            redFn = errorCatcher(() => redAsyncFunction(...primArgs));
+
+            return channel(redFn);
+        };
+    }
 
     wrapperCallbackFunction(callback) {
         const res = (...args) => callback(...args);
@@ -114,7 +177,7 @@ window.Realm = class {
         Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
             value: wrapper(res)
         });
-        
+
         return res;
     }
 

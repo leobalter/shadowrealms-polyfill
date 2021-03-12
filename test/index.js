@@ -10,7 +10,7 @@ module('Realm#eval', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new Realm();
-    })
+    });
 
     test('resolves to common primitive values', t => {
 
@@ -45,7 +45,7 @@ module('Realm#eval', ({ beforeEach }) => {
                 [Symbol.toPrimitive]() { return 'string'; },
                 toString() { return 'str'; },
                 valueOf() { return 1; }
-            })
+            });
         `), TypeError, 'object literal with immediate primitive coercion methods');
         t.throws(() => r.eval('Object.create(null)'), 'ordinary object with null __proto__');
         t.throws(() => r.eval('function fn() {} fn'), TypeError, 'value from a fn declaration');
@@ -67,24 +67,26 @@ module('Realm#Function', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new Realm();
-    })
+    });
 
     test('creates a new function', t => {
-        const fn = r.Function('x', 'return x * 2;');
+        const fn = r.Function('x', 'return x * 3;');
         t.strictEqual(typeof fn, 'function');
         t.ok(fn instanceof Function);
         t.strictEqual(fn.constructor, Function);
         t.strictEqual(Object.getPrototypeOf(fn), Function.prototype);
+
+        t.strictEqual(fn(2), 6);
     });
-    
+
     test('new Function', t => {
         const fn = new r.Function('x', 'return x * 2;');
-        
+
         t.strictEqual(typeof fn, 'function');
         t.ok(fn instanceof Function);
         t.strictEqual(fn.constructor, Function);
         t.strictEqual(Object.getPrototypeOf(fn), Function.prototype);
-        
+
         t.strictEqual(fn(2), 4);
     });
 
@@ -102,16 +104,16 @@ module('Realm#Function', ({ beforeEach }) => {
 
         t.throws(() => r.Function({}), TypeError);
         t.throws(() => new r.Function({}), TypeError);
-        
+
         const fn = r.Function(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
         t.strictEqual(fn(2, 3), 5);
-        
+
         const nfn = new r.Function(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
         t.strictEqual(nfn(2, 3), 5);
-        
+
         const arg1 = ['x'];
         const body = { toString() { return 'return x * 2;' }};
-        
+
         const coerced = r.Function(arg1, body);
         t.strictEqual(coerced(5), 10);
     });
@@ -138,7 +140,7 @@ module('Realm#Function', ({ beforeEach }) => {
 
         const fnArr = r.Function('return []');
         t.throws(() => fnArr(), TypeError);
-        
+
         const fnFn = r.Function('return function() {}');
         t.throws(() => fnFn(), TypeError);
     });
@@ -150,7 +152,7 @@ module('Realm#Function', ({ beforeEach }) => {
         t.expect(values.length + 1);
 
         t.ok(Number.isNaN(fn(NaN)));
-        
+
         values.forEach(value => {
             t.strictEqual(fn(value), value);
         });
@@ -180,7 +182,7 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new Realm();
-    })
+    });
 
     test('returns a new function that eventually calls the given callback', t => {
         let called = 0;
@@ -242,7 +244,7 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
 
     module('multiple realms', ({ beforeEach }) => {
         let wrappedFn, otherRealm;
-        
+
         beforeEach(() => {
             wrappedFn = r.wrapperCallbackFunction((x, y) => x * y);
             otherRealm = new Realm();
@@ -261,21 +263,148 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
 
         test.skip('identity is not leaked', t => {
             const redFn = otherRealm.Function('cb', 'return cb instanceof Function;');
-            t.ok(redFn(wrappedFn));
+            t.ok(redFn(wrappedFn), '#1');
 
             const otherWrappedFn = otherRealm.wrapperCallbackFunction(() => wrappedFn);
 
             const fn = otherRealm.Function('cb', 'return cb() instanceof Function');
 
-            t.ok(fn(otherWrappedFn));
+            t.ok(fn(otherWrappedFn), '#1');
         });
     });
 
     // test('')
 });
 
-module.skip('Realm#AsyncFunction', () => {
-    test('noop', (t) => {
-        t.expect(0);
+module('Realm#AsyncFunction', ({ beforeEach }) => {
+
+    // %AsyncFunction% is not exposed
+    const AsyncFunction = (async function() {}).constructor;
+
+    let r;
+    beforeEach(() => {
+        r = new Realm();
+    });
+
+    test('creates a new async function preserves identity', t => {
+        const fn = r.AsyncFunction('x', 'return await x * 2;');
+        t.strictEqual(typeof fn, 'function');
+        t.ok(fn instanceof AsyncFunction);
+        t.strictEqual(fn.constructor, AsyncFunction);
+        t.strictEqual(Object.getPrototypeOf(fn), AsyncFunction.prototype);
+    });
+
+    test('using new target preserves identity', t => {
+        const fn = new r.AsyncFunction('x', 'return await x * 2;');
+        t.strictEqual(typeof fn, 'function');
+        t.ok(fn instanceof AsyncFunction);
+        t.strictEqual(fn.constructor, AsyncFunction);
+        t.strictEqual(Object.getPrototypeOf(fn), AsyncFunction.prototype);
+    });
+
+    test('noop', async t => {
+        let fn;
+
+        fn = r.AsyncFunction();
+        t.strictEqual(await fn(), undefined);
+
+        fn = r.AsyncFunction('');
+        t.strictEqual(await fn(), undefined);
+
+        fn = r.AsyncFunction('', '');
+        t.strictEqual(await fn(), undefined);
+
+        fn = r.AsyncFunction('2');
+        t.strictEqual(await fn(), undefined);
+    });
+
+    test('symbol args cannot be coerced to strings', t => {
+        t.throws(() => r.AsyncFunction(Symbol()), TypeError);
+        t.throws(() => new r.AsyncFunction(Symbol()), TypeError);
+    });
+
+    test('toString coercion: params and body', async t => {
+
+        t.throws(() => r.AsyncFunction({}), TypeError);
+        t.throws(() => new r.AsyncFunction({}), TypeError);
+
+        const fn = r.AsyncFunction(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
+        let p = fn(2, 3);
+        t.strictEqual(Promise.resolve(p), p);
+        t.strictEqual(await p, 5, 'array coerced to string x,y, #1');
+
+        const nfn = new r.AsyncFunction(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
+        p = nfn(2, 3);
+        t.strictEqual(Promise.resolve(p), p);
+        t.strictEqual(await p, 5, 'array coerced to string x,y, #2');
+
+        const arg1 = ['x'];
+        const body = { toString() { return 'return x * 2;' }};
+
+        const coerced = r.AsyncFunction(arg1, body);
+        t.strictEqual(await coerced(5), 10);
+    });
+
+    test('toString coercion: non primitive args', async t => {
+        const checkTypes = r.AsyncFunction('...args', `
+            const res = args.filter(arg => typeof arg === 'string');
+            return res.length === args.length;
+        `);
+        t.ok(
+            await checkTypes(
+                {}, {toString() { return 'a'; }}, []
+            )
+        );
+
+        function noop() { /* lol */ }
+        function asyncNoop() { /* I'm coerced into a string */ }
+        function generatorNoop() { return 42; }
+        function asyncGeneratorNoop() {}
+        const arrowNoop = () => {};
+
+        t.ok(
+            await checkTypes(
+                noop, asyncNoop, generatorNoop, asyncGeneratorNoop, arrowNoop
+            )
+        );
+    });
+
+    test('throws a typeerror if it returns an object', async t => {
+        const expected = Symbol('expected');
+
+        const fn = r.AsyncFunction('return {}');
+        const catchErr = err => (err.constructor === TypeError) && expected;
+
+        let res;
+
+        res = await fn().catch(catchErr);
+        t.equal(res, expected);
+
+        const fnArr = r.AsyncFunction('return []');
+        res = await fnArr().catch(catchErr);
+        t.equal(res, expected);
+
+        const fnFn = r.AsyncFunction('return function() {}');
+        res = await fnFn().catch(catchErr);
+        t.equal(res, expected);
+    });
+
+    test('returns primitive values', async t => {
+        const fn = r.AsyncFunction('x', 'return x');
+        const values = [0, 1, false, true, 'string', Infinity, null, undefined, Symbol()];
+
+        t.expect(values.length + 1);
+
+        t.ok(Number.isNaN(await fn(NaN)));
+
+        values.map(async value => {
+            t.strictEqual(await fn(value), value);
+        });
+    });
+
+    test('Any error from the function execution is wrapped into a TypeError', async t => {
+        const redFn = r.AsyncFunction('throw 42;');
+
+        t.throws(() => redFn(), TypeError);
     });
 });
