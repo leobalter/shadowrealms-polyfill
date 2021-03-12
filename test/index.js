@@ -94,6 +94,14 @@ module('Realm#Function', ({ beforeEach }) => {
         t.strictEqual(fn(), undefined);
     });
 
+    test('returned function is frozen', t => {
+        const fn = r.Function();
+
+        t.ok(Object.isFrozen(fn));
+        t.notOk(Object.isExtensible(fn));
+        t.ok(Object.isSealed(fn));
+    });
+
     test('capture values from other realm', t => {
         r.eval('globalThis.__redValue = 42');
         const fn = new r.Function('return globalThis.__redValue;');
@@ -212,6 +220,14 @@ module('Realm#AsyncFunction', ({ beforeEach }) => {
 
         fn = r.AsyncFunction('2');
         t.strictEqual(await fn(), undefined);
+    });
+
+    test('returned function is frozen', t => {
+        const fn = r.AsyncFunction();
+
+        t.ok(Object.isFrozen(fn));
+        t.notOk(Object.isExtensible(fn));
+        t.ok(Object.isSealed(fn));
     });
 
     test('symbol args cannot be coerced to strings', t => {

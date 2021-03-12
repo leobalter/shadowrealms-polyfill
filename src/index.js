@@ -148,7 +148,7 @@ window.Realm = class {
                 redFn = errorCatcher(() => redFunction(...primArgs));
             }
 
-            return channel(redFn);
+            return Object.freeze(channel(redFn));
         };
     }
 
@@ -164,7 +164,7 @@ window.Realm = class {
 
             redFn = errorCatcher(() => redAsyncFunction(...primArgs));
 
-            return channel(redFn);
+            return Object.freeze(channel(redFn));
         };
     }
 
