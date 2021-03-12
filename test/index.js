@@ -20,7 +20,6 @@ module('Realm#eval', ({ beforeEach }) => {
         t.strictEqual(r.eval('undefined'), undefined);
         t.strictEqual(r.eval('true'), true);
         t.strictEqual(r.eval('false'), false);
-        t.strictEqual(r.eval(''), undefined);
         t.strictEqual(r.eval('function fn() {}'), undefined, 'fn declaration has empty completion'); 
         t.ok(Number.isNaN(r.eval('NaN')));
         t.strictEqual(r.eval('-0'), -0);
@@ -28,7 +27,7 @@ module('Realm#eval', ({ beforeEach }) => {
     });
 
     test('resolves to symbol values (primitives)', t => {
-        var s = r.eval('Symbol()');
+        const s = r.eval('Symbol()');
 
         t.strictEqual(typeof s, 'symbol');
         t.ok(Symbol.prototype.toString.call(s));
@@ -38,7 +37,6 @@ module('Realm#eval', ({ beforeEach }) => {
     });
 
     test('throws a TypeError if eval resolves to object values', t => {
-        t.throws()
         t.throws(() => r.eval('({})'), TypeError, 'object literal');
         t.throws(() => r.eval(`
             ({
@@ -60,6 +58,7 @@ module('Realm#eval', ({ beforeEach }) => {
         t.throws(() => r.eval('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
         t.throws(() => r.eval('throw 42'), TypeError, 'throw primitive => TypeError');
         t.throws(() => r.eval('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
+        t.throws(() => r.eval('throw new TypeError("aaa")'), TypeError, 'RedTypeError => BlueTypeError');
     });
 });
 
@@ -95,6 +94,13 @@ module('Realm#Function', ({ beforeEach }) => {
         t.strictEqual(fn(), undefined);
     });
 
+    test('capture values from other realm', t => {
+        r.eval('globalThis.__redValue = 42');
+        const fn = new r.Function('return globalThis.__redValue;');
+        t.strictEqual(fn(), 42);
+        t.strictEqual(globalThis.__redValue, undefined);
+    });
+
     test('symbol args will break', t => {
         t.throws(() => r.Function(Symbol()), TypeError);
         t.throws(() => new r.Function(Symbol()), TypeError);
@@ -118,6 +124,7 @@ module('Realm#Function', ({ beforeEach }) => {
         t.strictEqual(coerced(5), 10);
     });
 
+    // TODO: review this
     test('toString coercion: non primitive args', t => {
         const checkTypes = r.Function('...args', `
             const res = args.filter(arg => typeof arg === 'string');
@@ -308,7 +315,7 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
      * const fn = r.wrapperCallbackFunction(function (a, b, c) {
      *     return a + b + c;
      * });
-     * 
+     *
      * const redFn = r.Function('callback', `
      *     callback.toString(); // native
      *     return callback(1, 2, 3);
