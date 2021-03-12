@@ -133,6 +133,8 @@ module('Realm#Function', ({ beforeEach }) => {
     });
 
     // TODO: review this
+    // In the current behavior, all args are coerced to primitive before sending to the red function
+    // Should it just throw with non primitive values?
     test('toString coercion: non primitive args', t => {
         const checkTypes = r.Function('...args', `
             const res = args.filter(arg => typeof arg === 'string');
@@ -257,6 +259,9 @@ module('Realm#AsyncFunction', ({ beforeEach }) => {
         t.strictEqual(await coerced(5), 10);
     });
 
+    // TODO: review this
+    // In the current behavior, all args are coerced to primitive before sending to the red function
+    // Should it just throw with non primitive values?
     test('toString coercion: non primitive args', async t => {
         const checkTypes = r.AsyncFunction('...args', `
             const res = args.filter(arg => typeof arg === 'string');
@@ -281,7 +286,7 @@ module('Realm#AsyncFunction', ({ beforeEach }) => {
         );
     });
 
-    test('throws a typeerror if it returns an object', async t => {
+    test('throws a TypeError if it returns an object', async t => {
         const expected = Symbol('expected');
 
         const fn = r.AsyncFunction('return {}');
@@ -354,6 +359,14 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
         const res = fn();
         t.strictEqual(called, 1);
         t.strictEqual(res, 1);
+    });
+
+    test('returned function is frozen', t => {
+        const fn = r.wrapperCallbackFunction(() => {});
+
+        t.ok(Object.isFrozen(fn));
+        t.notOk(Object.isExtensible(fn));
+        t.ok(Object.isSealed(fn));
     });
 
     test('takes arguments', t => {
