@@ -183,7 +183,6 @@ module('Realm#Function', ({ beforeEach }) => {
 });
 
 module('Realm#AsyncFunction', ({ beforeEach }) => {
-
     // %AsyncFunction% is not exposed
     const AsyncFunction = (async function() {}).constructor;
 

@@ -6,11 +6,9 @@ module.exports = function(config) {
       'src/**/*.js',
       'test/**/*.js'
     ],
-    exclude: [
-      'src/*-example.js'
-    ],
     preprocessors: {
-      'src/**/*.js': ['coverage']
+      'src/**/*.js': ['babel'],
+      'test/**/*.js': ['babel']
     },
     reporters: ['progress', 'coverage'],
     port: 9876,
@@ -20,11 +18,16 @@ module.exports = function(config) {
     browsers: ['ChromeHeadless'], // , 'Firefox', 'Safari'],
     singleRun: false,
     concurrency: Infinity,
-    converageReporter: {
-      // reporters: ['html', 'text-summary'],
-      type: 'text',
-      dir: 'coverage/',
-      file: 'coverage.txt'
+    babelPreprocessor: {
+      options: {
+        sourceMap: 'inline'
+      },
+      filename: function (file) {
+        return file.originalPath.replace(/\.js$/, '.es5.js');
+      },
+      sourceFileName: function (file) {
+        return file.originalPath;
+      }
     }
   });
 };
