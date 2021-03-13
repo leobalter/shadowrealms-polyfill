@@ -369,6 +369,13 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
         t.ok(Object.isSealed(fn));
     });
 
+    test('callback in frozen in the inner function', t => {
+        const wrapped = r.wrapperCallbackFunction(() => {});
+
+        const fn = r.Function('cb', 'return (Object.isFrozen(cb) && !Object.isExtensible(cb) && Object.isSealed(cb));');
+        t.strictEqual(fn(wrapped), true);
+    });
+
     test('takes arguments', t => {
         const fn = r.wrapperCallbackFunction((x) => { return x * 2; });
 
@@ -414,6 +421,8 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
             const res = redFn(fn);
             t.ok(res);
         });
+
+        // Should we set a frozen toString?
     });
 
     module('multiple realms', ({ beforeEach }) => {
@@ -435,6 +444,9 @@ module('Realm#wrapperCallbackFunction', ({ beforeEach }) => {
             t.strictEqual(fn(otherWrappedFn), 36);
         });
 
+        // TODO: Should we allow using wrapped functions into different realms?
+        // Suggestion: disallow
+        // In this case, fix the test above
         test.skip('identity is not leaked', t => {
             const redFn = otherRealm.Function('cb', 'return cb instanceof Function;');
             t.ok(redFn(wrappedFn), '#1');

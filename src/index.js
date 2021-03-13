@@ -175,10 +175,19 @@ window.Realm = class {
 
         // TODO: set internal
         Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
-            value: wrapper(res)
+            value: Object.freeze(wrapper(res))
         });
 
-        return res;
+        return Object.freeze(res);
+    }
+
+    // TODO: implement and test
+    import(...args) {
+
+        // It returns undefined intentionally
+        const asyncFn = this.AsyncFunction('...args', 'await import(...args);');
+
+        return asyncFn(...args);
     }
 
     static #WRAPPER = Symbol();
