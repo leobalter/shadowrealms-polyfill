@@ -4,7 +4,7 @@ module.exports = function (config) {
         frameworks: ['qunit'],
         files: ['src/**/*.js', 'test/**/*.js'],
         preprocessors: {
-            'src/**/*.js': ['eslint', 'babel'],
+            'src/**/*.js': ['coverage', 'eslint', 'babel'],
             'test/**/*.js': ['eslint', 'babel']
         },
         reporters: ['progress', 'coverage', 'summary'],
