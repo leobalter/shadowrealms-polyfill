@@ -31,6 +31,7 @@
     "karma-eslint": "^2.2.0",
     "karma-firefox-launcher": "^2.1.0",
     "karma-qunit": "^4.1.2",
+    "karma-webdriver-launcher": "^1.0.8",
     "prettier": "^2.2.1",
     "qunit": "^2.14.0",
     "selenium-webdriver": "^4.0.0-beta.1"
