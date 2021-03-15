@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "watch": "karma start karma.conf.js",
-    "test:ci": "karma start --browsers=ChromeHeadless --single-run",
+    "test:ci": "karma start --browsers=ChromeHeadless,FirefoxHeadless --single-run",
+    "test:ci-safari": "karma start --browsers=Safari --single-run",
     "test": "karma start --single-run",
     "lint": "eslint 'src/**/*.js' 'test/**/*.js'"
   },
