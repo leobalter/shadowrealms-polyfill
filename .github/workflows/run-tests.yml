@@ -8,8 +8,10 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest] # windows-latest takes forever to run
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
@@ -18,4 +20,6 @@ jobs:
       with:
         node-version: 15.x
     - run: npm ci
-    - run: npm run test
+    - run: npm run test:ci
+    - run: npm run test:ci-safari
+      if: ${{ matrix.os == 'macos-latest' }}

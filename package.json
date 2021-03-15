@@ -5,21 +5,38 @@
   "main": "index.js",
   "scripts": {
     "watch": "karma start karma.conf.js",
-    "test": "karma start --browsers=ChromeHeadless --single-run"
+    "test:ci": "karma start --browsers=ChromeHeadless,FirefoxHeadless --single-run",
+    "test:ci-safari": "karma start --browsers=Safari --single-run",
+    "test": "karma start --single-run",
+    "lint": "eslint 'src/**/*.js' 'test/**/*.js'"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "comments": {
+    "karma-safari-launcher": "this is a headless safari using safaridriver https://github.com/karma-runner/karma-safari-launcher/pull/22"
+  },
   "devDependencies": {
-    "eslint": "^7.21.0",
+    "@babel/core": "^7.13.10",
+    "@babel/eslint-parser": "^7.13.10",
+    "@babel/plugin-proposal-class-properties": "^7.13.0",
+    "@babel/plugin-proposal-private-methods": "^7.13.0",
+    "@babel/preset-env": "^7.13.10",
+    "eslint-plugin-inclusive-language": "^2.1.1",
+    "eslint-plugin-qunit": "^5.3.0",
     "karma": "^6.1.2",
+    "karma-babel-preprocessor": "^8.0.1",
     "karma-chrome-launcher": "^3.1.0",
     "karma-coverage": "^2.0.3",
+    "karma-eslint": "^2.2.0",
     "karma-firefox-launcher": "^2.1.0",
     "karma-qunit": "^4.1.2",
-    "karma-safari-launcher": "^1.0.0",
+    "karma-safari-launcher": "git://github.com/RLovelett/karma-safari-launcher.git#safari-webdriver",
+    "karma-summary-reporter": "^2.0.0",
+    "karma-webdriver-launcher": "^1.0.8",
     "prettier": "^2.2.1",
-    "qunit": "^2.14.0"
+    "qunit": "^2.14.0",
+    "selenium-webdriver": "^4.0.0-beta.1"
   },
   "dependencies": {
     "express": "^4.17.1",
