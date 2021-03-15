@@ -1,4 +1,4 @@
-name: Run Tests
+name: Run Tests All Browsers
 
 on:
   push:
@@ -18,4 +18,8 @@ jobs:
       with:
         node-version: 15.x
     - run: npm ci
+    - name: Enable Safari Driver
+        run: |
+          sudo safaridriver --enable
+          defaults write com.apple.Safari WebKitJavaScriptCanOpenWindowsAutomatically 1
     - run: npm run test
