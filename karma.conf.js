@@ -4,8 +4,8 @@ module.exports = function (config) {
         frameworks: ['qunit'],
         files: ['src/**/*.js', 'test/**/*.js'],
         preprocessors: {
-            'src/**/*.js': ['babel'],
-            'test/**/*.js': ['babel']
+            'src/**/*.js': ['eslint', 'babel'],
+            'test/**/*.js': ['eslint', 'babel']
         },
         reporters: ['progress', 'coverage'],
         port: 9876,

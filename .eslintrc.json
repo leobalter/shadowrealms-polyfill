@@ -5,7 +5,7 @@
     },
     "parser": "@babel/eslint-parser",
     "plugins": ["inclusive-language", "qunit"],
-    "extends": ["eslint:recommended", "qunit"],
+    "extends": ["eslint:recommended", "plugin:qunit/recommended"],
     "rules": {
         "inclusive-language/use-inclusive-words": "error"
     }

@@ -1,0 +1,6 @@
+{
+    "globals": {
+        "Realm": "readonly",
+        "QUnit": "readonly"
+    }
+}
