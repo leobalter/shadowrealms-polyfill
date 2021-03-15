@@ -7,7 +7,12 @@ module.exports = function (config) {
             'src/**/*.js': ['eslint', 'babel'],
             'test/**/*.js': ['eslint', 'babel']
         },
-        reporters: ['progress', 'coverage'],
+        reporters: ['progress', 'coverage', 'summary'],
+        summaryReporter: {
+            show: 'all',
+            specLength: 100,
+            overviewColumn: true
+        },
         port: 9876,
         colors: true,
         logLevel: config.LOG_INFO,
@@ -15,7 +20,6 @@ module.exports = function (config) {
         browsers: ['ChromeHeadless', 'FirefoxHeadless', 'Safari'],
         singleRun: false,
         concurrency: Infinity,
-        plugins: ['karma-*', '@onslip/karma-safari-launcher'],
         babelPreprocessor: {
             filename: ({ originalPath }) => originalPath.replace(/\.js$/, '.es5.js'),
             sourceFileName: ({ originalPath }) => originalPath
