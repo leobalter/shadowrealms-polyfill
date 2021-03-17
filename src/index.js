@@ -7,7 +7,6 @@ window.Realm = class {
         document.body.appendChild(iframe);
 
         const { contentWindow } = iframe;
-        this.#globalThis = contentWindow.globalThis;
         this.#RedFunction = contentWindow.Function;
         this.#RedEval = contentWindow.eval;
         this.#RedAsyncFunction = contentWindow.eval('(async function() {}).constructor');
@@ -16,13 +15,12 @@ window.Realm = class {
     }
 
     #RedEval;
-    #globalThis;
     #RedFunction;
     #RedAsyncFunction;
 
-    #BlueFunction = Function;
-    #BlueAsyncFunction = (async function () {}).constructor;
-    #BluePromise = Promise;
+    // #BlueFunction = Function;
+    // #BlueAsyncFunction = (async function () {}).constructor;
+    // #BluePromise = Promise;
 
     #iframe = document.createElement('iframe');
 
@@ -171,7 +169,7 @@ window.Realm = class {
     wrapperCallbackFunction(callback) {
         const res = (...args) => callback(...args);
 
-        const wrapper = new this.#globalThis.Function('cb', 'function wrapper(...args) { return cb(...args); } return wrapper;');
+        const wrapper = new this.#RedFunction('cb', 'function wrapper(...args) { return cb(...args); } return wrapper;');
 
         // TODO: set internal
         Object.defineProperty(res, this.#fakeIntrinsic.#WRAPPER, {
