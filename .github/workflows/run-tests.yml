@@ -20,6 +20,7 @@ jobs:
       with:
         node-version: 15.x
     - run: npm ci
-    - run: npm run test:ci
-    - run: npm run test:ci-safari
-      if: ${{ matrix.os == 'macos-latest' }}
+    - run: npm run test
+    # - run: npm run test:ci
+    # - run: npm run test:ci-safari
+      #if: ${{ matrix.os == 'macos-latest' }}
