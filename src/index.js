@@ -11,6 +11,8 @@ window.Realm = class {
         this.#RedEval = contentWindow.eval;
         this.#RedAsyncFunction = contentWindow.eval('(async function() {}).constructor');
 
+        iframe.remove();
+
         this.#fakeIntrinsic;
     }
 
