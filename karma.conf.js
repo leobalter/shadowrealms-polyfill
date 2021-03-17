@@ -17,7 +17,7 @@ module.exports = function (config) {
         colors: true,
         logLevel: config.LOG_INFO,
         autoWatch: true,
-        browsers: ['ChromeHeadless', 'FirefoxHeadless', 'Safari'],
+        browsers: ['ChromeHeadless', 'FirefoxHeadless'],
         singleRun: false,
         concurrency: Infinity,
         babelPreprocessor: {
