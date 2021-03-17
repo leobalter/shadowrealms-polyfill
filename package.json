@@ -4,15 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "watch": "karma start karma.conf.js",
+    "watch": "karma start",
     "test:ci": "karma start --browsers=ChromeHeadless,FirefoxHeadless --single-run",
     "test:ci-safari": "karma start --browsers=Safari --single-run",
     "test": "rm -rf coverage && karma start --single-run",
     "lint": "eslint 'src/**/*.js' 'test/**/*.js'"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Leo Balter <leonardo.balter@gmail.com>",
+  "license": "MIT",
   "comments": {
     "karma-safari-launcher": "this is a headless safari using safaridriver https://github.com/karma-runner/karma-safari-launcher/pull/22"
   },
