@@ -126,3 +126,70 @@ const redFunction = r.Function('cb', 'return cb();');
 
 redFunction(blueFunctionWrapped); // Throws TypeError
 ```
+
+## `importWrapped` Function
+
+Ref https://github.com/leobalter/realms-polyfill/issues/8
+
+In order to avoid string evaluation, we can reverse the usage of wrapped callback function to resolve injected modules into wrapped functions.
+
+```js
+const red = new Realm();
+
+const wrappedRedFn = await red.importWrapped('./specifier.js', 'injectedFunction');
+```
+
+This would be a rough equivalent of:
+
+```js
+const red = new Realm();
+let wrappedRedFn;
+
+{
+    const __redFunction = new red.AsyncFunction('spec', 'name', `
+        const ns = await import(spec);
+
+        if ({}.hasOwnProperty.call(ns, name)) {
+            return ns[name];
+        }
+
+        throw new TypeError('Binding name not available');
+    `);
+
+    wrappedRedFn = __redFunction('./specifier', 'injectedFunction').then(
+            fn => Realm.[WRAP_FUNCTION_INTERNAL](fn)
+        ).catch(err => throw new TypeError(err.message));
+}
+```
+
+This asserts the received `wrappedRedFn` is a Blue Function. When called, it triggers a call to the Red Function.
+
+```js
+assert(wrappedRedFn instanceof Function);
+assert.sameValue(Object.getPrototypeOf(wrappedRedFn), Function.prototype);
+```
+
+The injected module namespace and function is not leaked within the Red Realm, but can observe things only from the Red Realm.
+
+```javascript
+// specifier.js:
+export default function() {
+    /* ignored */
+}
+
+export function injectedFunction(x) {
+    return globalThis.someValue + x;
+};
+```
+
+```javascript
+const red = new Realm();
+
+const wrappedRedFn = await red.importWrapped('./specifier.js', 'injectedFunction');
+
+red.eval('globalThis.someValue = "Hello, "');
+
+globalThis.someValue = 'Olá, ';
+
+wrappedRedFn('World!'); // yields to 'Hello, World!'
+```
