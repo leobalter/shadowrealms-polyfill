@@ -7,19 +7,29 @@ This comment describes a possible solution for the API of the Realm to work with
 ```ts
 declare class Realm {
     constructor();
-    Function(...args: (string|function)[]): Function;
+    eval(sourceText: string): any;
     importBinding(specifier: string | function): Promise<any>;
 }
 ```
 
-## Bridge Functions (Remote Functions)
+## Eval with connecting functions
 
-A bridge function is just a function that is created via `Realm.prototype.Function`, which returns a function in the incubator realm who's body is evaluated in the Realm itself. E.g.:
+The Realm Eval operates regularly as an indirect eval in the created Realm but it can only return primitive values or __callable__ objects. Other non-primitive values would throw a TypeError in the incubator Realm.
 
-```js
-const r = new Realm();
-const doSomething = r.Function('a', 'b', `return a + b;`);
-doSomething(1, 2); // yields 3
+When `Realm#eval` results in callable objects - generally functions - it creates a new _wrapped_ function in the incubator realm that chains to the inner Realm's function when called.
+
+This _wrapped_ function can also only receive primitive values or __callable__ objects as arguments. If the incubator Realm calls the wrapped function with another function as argument, the chained function in the child realm will receive a wrapped function of the given argument.
+
+The wrapped functions are frozen and do not share any identity cross realms with the function they chain onto. They must be connected through the realm instance as weakrefs enabling eventual garbage collection.
+
+```javascript
+const red = new Realm();
+const redNumber = red.eval('var x = 42; x;');
+redNumber; // yields 42
+
+const redFunction = red.eval('(function(x) { return x * 2; })');
+
+redFunction(21); // yields 42
 ```
 
 A good analogy here is a cross realm bound function, which is a function in a realm that is available in the incubator realm, this function's job is to call another function, this time, a function inside the realm, that might or might not return a completion value.
@@ -27,12 +37,6 @@ A good analogy here is a cross realm bound function, which is a function in a re
 This mechanism allows the incubator realm to define logic inside the realm without relying on populating the global object with global names just for the purpose of communication between the two realms.
 
 Additionally, this allows the incubator to easily pass identities when invoking a function inside the realm, e.g.: a symbol, which is not possible via `Realm.prototype.eval` because the Symbol is not something that you can point to from source text. This feature provides a synchronous communication mechanism that allows passing and returning primitive values across the two realms.
-
-### Invariants
-
-* A Bridge Function can only receive primitive or __callable__ values as arguments. Throws otherwise.
-* A Bridge Function can only return a primitive or __callable__ value. Throws a TypeError otherwise.
-* A Bridge Function is a frozen function to prevent users from attempting to use the function itself as a side channel between realms. (`f.x = 1` will throw in strict mode).
 
 ## <a id="fnwrapping"></a> Automatic function wrapping
 
@@ -42,12 +46,16 @@ __Callbable__ values sent to bridge functions are auto wrapped.
 const red = new Realm();
 const blueFunction = (x, y) => x + y;
 
-const redFunction = red.Function('redFunctionArg', 'a', 'b', 'c', 'return redFunctionArg(a, b) * c;');
+const redFunction = red.eval(`
+    0, function(redFunctionArg, a, b, c) {
+        return redFunctionArg(a, b) * c;
+    }
+`);
 
 redFunction(blueFunction, 2, 3, 4); // yields 20
 ```
 
-```js
+```javascript
 let myValue;
 
 const red = new Realm();
@@ -55,17 +63,43 @@ function blueFunction(x) {
     globalThis.myValue = x;
 };
 
-// cb is a new function in the red Realm that bridges the call to the blueFunction
-const redFunction = red.Function('cb', 'globalThis.myValue = "red"; cb(42); return globalThis.myValue;');
+// cb is a new function in the red Realm that chains the call to the blueFunction
+const redFunction = red.eval(`
+    0, function(cb) {
+        globalThis.myValue = "red";
+        cb(42);
+        return globalThis.myValue;
+    }
+`);
 
 redFunction(blueFunction); // yields the string 'red'
 
 myValue === 42; // true
 ```
 
+### Errors are wrapped into a TypeError
+
 Errors are wrapped into a TypeError while traveling from one realm to another.
 
-```js
+```javascript
+const red = new Realm();
+
+try {
+    red.eval('throw "foo"');
+} catch(err) {
+    assert(err.constructor === TypeError);
+}
+
+try {
+    red.eval('throw new Error()');
+} catch(err) {
+    assert(err.constructor === TypeError);
+}
+```
+
+This also applies to errors caused in the wrapped functions.
+
+```javascript
 const red = new Realm();
 
 class CustomError extends Error {};
@@ -74,14 +108,17 @@ function blueFunction(x) {
     throw new CustomError('meep');
 };
 
-const redFunction = red.Function('cb', `
-    try {
-        cb();
-    } catch (err) {
+const redFunction = red.eval(`
+    0, function(cb) {
+        try {
+            cb();
+        } catch (err) {
 
-        // The error is a TypeError wrapping the abrupt completion CustomError from the blueFunction call
-        err.constructor === TypeError; // true
-        throw 'foo';
+            // The error is a TypeError wrapping the abrupt completion
+            // CustomError from the blueFunction call
+            err.constructor === TypeError; // true
+            throw 'foo';
+        }
     }
 `);
 
@@ -94,6 +131,8 @@ try {
 }
 ```
 
+### Frozen connecting functions
+
 The wrapped functions are __frozen__ and they share no properties from the other realm.
 
 ```javascript
@@ -105,57 +144,96 @@ function blueFunction() {
 
 blueFunction.x = 'noop';
 
-const redFunction = red.Function('cb', `
-    Object.isFrozen(cb); // true
-    cb(); // yields 42;
-    cb.x; // undefined
-    Object.prototype.hasOwnProperty.call(cb, 'x'); // false
+const redFunction = red.eval(`
+    0, function(cb) {
+        Object.isFrozen(cb); // true
+        cb(); // yields 42;
+        cb.x; // undefined
+        Object.prototype.hasOwnProperty.call(cb, 'x'); // false
 
-    return 1;
+        return 1;
+    }
 `);
+
+assert(Object.isFrozen(redFunction));
 
 redFunction(blueFunction); // yields 1
 ```
 
-The autowrapping creates a new regular function within the other realm that bridges a call to the given function. The new function inherits from the realm's `%Function%`.
+### Connecting functions are regular functions
 
-```js
+The autowrapping creates a new regular function within the other realm that chains a call to the given function. The new function inherits from the realm's `%Function%`.
+
+```javascript
 const red = new Realm();
-const redFunction = r.Function('cb', 'return cb instanceof Function && Object.getPrototypeOf(cb) === Function.prototype;');
+const redFunction = red.eval(`
+    0, function(cb) {
+        return cb instanceof Function &&
+            Object.getPrototypeOf(cb) === Function.prototype;
+    }
+`);
 
 function blueFunction() {}
 
 redFunction(blueFunction); // true
 ```
 
-All the API checks is if the given value is __callable__. It does not run extra magic wrapping other functions.
+### Callable objects, not only functions
+
+All the API checks if the given value is __callable__. It does not run extra magic wrapping other functions.
 
 While this part still works, there is no automatic wrapping proposed here for returned promises or iterators. Sending async functions, classes, generators, and async generators are not useful.
 
 ```javascript
 const red = new Realm();
-const redFunction = red.Function('cb', 'return cb instanceof Function && Object.getPrototypeOf(cb) === Function.prototype;');
+const redFunction = red.eval(`
+    0, function(cb) {
+        return cb instanceof Function &&
+            Object.getPrototypeOf(cb) === Function.prototype;
+    }
+`);
 
 redFunction(async function() {}); // true
 ```
 
 ```javascript
 const red = new Realm();
-const redFunction = red.Function('cb', 'return cb();');
+const redFunction = red.eval(`
+    0, function(cb) {
+        return cb();
+    }
+`);
 
 // Throws a TypeError, cb() returned a Promise, which is a non primitive, non callable value.
 redFunction(async function() {});
 ```
 
-The same auto wrapping happens for __callable__ values returned from a realm bridge.
+#### Proxy wrapped functions are callable
+
+Addressing callable objects allows chaining to Proxy wrapped functions.
 
 ```javascript
 const red = new Realm();
-const redFunction = red.Function(`
-    globalThis.redValue = 42;
-    return function() {
-        return globalThis.redValue;
-    };
+const redFunction = red.eval(`
+    new Proxy(function fn() {}, {
+        call(...) { ... }
+    });
+`);
+```
+
+### Auto wrapping for eventual function returns
+
+The same auto wrapping happens for __callable__ values returned from a realm chain.
+
+```javascript
+const red = new Realm();
+const redFunction = red.eval(`
+    0, function() {
+        globalThis.redValue = 42;
+        return function() {
+            return globalThis.redValue;
+        };
+    }
 `);
 
 const wrapped = redFunction();
@@ -167,14 +245,17 @@ wrapped(); // yields 42
 
 ### Function this bindings are not exposed
 
-As the API only provides a bridge function, `this` is not exposed.
+As the API only provides a bridge function, `this` is not exposed. A a new.target cannot be transfered to the other realm.
 
 ```javascript
 const red = new Realm();
-const redFunction = red.Function('cb', `
-    // .call only applies to the bridge function created in this Realm
-    // The bridge will only channel the arguments
-    return cb.call({x: 'poison!'}, 2);
+const redFunction = red.eval(`
+    0, function(cb) {
+
+        // .call only applies to the bridge function created in this Realm
+        // The bridge will only channel the arguments
+        return cb.call({x: 'poison!'}, 2);
+    }
 `);
 
 function blueFunction(arg) {
@@ -189,7 +270,7 @@ redFunction(blueFunction); // yields 42
 
 The `Realm#importBinding` can be used to inject modules using the dynamic `import` expression within the created Realm. This module returns a promise that is resolved when the import is resolved within the Realm. This promise will be resolved with a matching value of the given binding name.
 
-```js
+```javascript
 const r = new Realm();
 const promise = r.importBinding('./my-module.js', 'foo');
 
@@ -224,7 +305,7 @@ const [ fooN, timesTwo, myWrappedFn ] = await Promise.all(
 fooN; // 42
 typeof timesTwo; // 'function'
 
-// timesTwo is just a wrapped function that bridges to the original timesTwo
+// timesTwo is just a wrapped function that chains to the original timesTwo
 // inside the child Realm r
 timesTwo instanceof Function; // true
 Object.getPrototypeOf(timesTwo) === Function.prototype; // true
@@ -244,7 +325,7 @@ _There's no dynamic mapping to the primitive values from the imported names. The
 
 ### `importBinding` auto wrapping
 
-```js
+```javascript
 const red = new Realm();
 
 const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction');
@@ -252,7 +333,7 @@ const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction
 
 The received `wrappedRedFn` is a Blue Function. When called, it triggers a call to the Red Function captured from the module import.
 
-```js
+```javascript
 assert(wrappedRedFn instanceof Function);
 assert.sameValue(Object.getPrototypeOf(wrappedRedFn), Function.prototype);
 ```
@@ -271,9 +352,10 @@ const red = new Realm();
 
 const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction');
 
-const redFunction = red.Function('globalThis.someValue = "Hello"');
-redFunction(); // sets a global someValue in the red Realm
+// sets a global someValue in the red Realm
+red.eval('globalThis.someValue = "Hello"');
 
+// and a global someValue in the blue Realm
 globalThis.someValue = 'Olá';
 
 wrappedRedFn('World'); // yields to 'Hello, World!'
