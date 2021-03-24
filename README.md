@@ -40,7 +40,7 @@ Additionally, this allows the incubator to easily pass identities when invoking 
 
 ## <a id="fnwrapping"></a> Automatic function wrapping
 
-__Callbable__ values sent to bridge functions are auto wrapped.
+__Callbable__ values resolved in the evaluation are auto wrapped.
 
 ```javascript
 const red = new Realm();
@@ -245,15 +245,15 @@ wrapped(); // yields 42
 
 ### Function this bindings are not exposed
 
-As the API only provides a bridge function, `this` is not exposed. A a new.target cannot be transfered to the other realm.
+As the API only provides a losely connecting function, so `this` is not exposed and `new.target` cannot be transfered to the other realm.
 
 ```javascript
 const red = new Realm();
 const redFunction = red.eval(`
     0, function(cb) {
 
-        // .call only applies to the bridge function created in this Realm
-        // The bridge will only channel the arguments
+        // .call only applies to the wrapped function created in this Realm
+        // The chain will only transfer the arguments
         return cb.call({x: 'poison!'}, 2);
     }
 `);
@@ -266,7 +266,7 @@ globalThis.x = 21;
 redFunction(blueFunction); // yields 42
 ```
 
-## `importBinding` Bridge
+## The `importBinding` connector
 
 The `Realm#importBinding` can be used to inject modules using the dynamic `import` expression within the created Realm. This module returns a promise that is resolved when the import is resolved within the Realm. This promise will be resolved with a matching value of the given binding name.
 
