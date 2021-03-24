@@ -2,18 +2,13 @@
 
 This comment describes a possible solution for the API of the Realm to work with the new isolation model described in [this issue](https://github.com/tc39/proposal-realms/issues/289).
 
-Original comment contents at the [ORIGINAL.md](ORIGINAL.md) file.
-
 ## API (in typescript notation)
 
 ```ts
 declare class Realm {
     constructor();
-    eval(sourceText: string): any;
-    Function(...args: string[]): Function;
-    AsyncFunction(...args: string[]): AsyncFunction;
-    import(specifier: string): Promise<undefined>;
-    wrappedCallbackFunction(callback: Function): Function;
+    Function(...args: (string|function)[]): Function;
+    importBinding(specifier: string | function): Promise<any>;
 }
 ```
 
@@ -35,62 +30,21 @@ Additionally, this allows the incubator to easily pass identities when invoking 
 
 ### Invariants
 
-* A Bridge Function can only receive primitive values as arguments. Throws otherwise.
-    - [ ] TODO: It's currently coercing values to string
-* A Bridge Function can only return a primitive value. Throws a TypeError otherwise.
+* A Bridge Function can only receive primitive or __callable__ values as arguments. Throws otherwise.
+* A Bridge Function can only return a primitive or __callable__ value. Throws a TypeError otherwise.
 * A Bridge Function is a frozen function to prevent users from attempting to use the function itself as a side channel between realms. (`f.x = 1` will throw in strict mode).
-    - NOTE: even if it's not frozen, properties wouldn't leak to the other realm.
 
-## Async Bridge Function (Async Remote Function)
+## <a id="fnwrapping"></a> Automatic function wrapping
 
-To add support for native promises when communicating between realms, it seems that by adding `Realm.prototype.AsyncFunction`, we might be able to provide extra capabilities that can be used to define an async protocol between the two realms.
+__Callbable__ values sent to bridge functions are auto wrapped.
 
-```js
-const r = new Realm();
-const asyncFunctionInsideRealm = r.AsyncFunction('x', `return await (x * 2);`);
-asyncFunctionInsideRealm(1); // yields a Promise instance in incubator that eventually resolves to 2
-```
-
-Of course, the promise instance received by the incubator realm is not the one produced by the body of the function, but a wrapping one with the identity associated to the incubator realm.
-
-### Invariants
-
-* A Async Bridge Function can only receive primitive values as arguments. Throws otherwise.
-    - [ ] TODO: It's currently coercing values to string
-* A Async Bridge Function is a frozen function to prevent users from attempting to use the function itself as a side channel between realms. (`f.x = 1` will throw in strict mode).
-* The Promise must resolves to a primitive value, otherwise the promise will be rejected.
-* The Promise instance accessible in the incubator realm is frozen to prevent users from "attempting" to use the function itself as a side channel between realms.
-
-This works great for the incubator realm since it provides all the tools to create a pull system from the incubator call, but still doesn't provide an easy mechanism to implement a push system from the realm itself. In my opinion this is not a deal breaker, and can probably be implemented in user-land using something like an async iterators protocol.
-
-## import Bridge
-
-The `Realm#import` can be used to inject modules using the dynamic `import` expression within the created Realm. This module returns a promise that is resolved when the import is resolved within the Realm. This promise will be resolved to undefined and the imported module namespace object is ignored. The injections should operate through shared globals.
-
-```js
-const r = new Realm();
-const promise = r.import('./my-module.js');
-
-const res = await promise;
-// res === undefined
-```
-
-## wrappedCallbackFunction
-
-```js
+```javascript
 const red = new Realm();
 const blueFunction = (x, y) => x + y;
-const blueFunctionWrapped = r.wrappedCallbackFunction(blueFunction);
 
-// blueFunction !== blueFunctionWrapped
+const redFunction = red.Function('redFunctionArg', 'a', 'b', 'c', 'return redFunctionArg(a, b) * c;');
 
-const redFunction = r.Function('cb', 'a', 'b', 'c', 'return cb(a, b) * c;');
-
-// redFunction is equivalent to function(cb, a, b, c) { return cb(a, b) * c; }
-
-redFunction(blueFunctionWrapped, 2, 3, 4); // yields 20
-
-// redFunction(blueFunction) throws a TypeError
+redFunction(blueFunction, 2, 3, 4); // yields 20
 ```
 
 ```js
@@ -98,71 +52,205 @@ let myValue;
 
 const red = new Realm();
 function blueFunction(x) {
-    myValue = x;
+    globalThis.myValue = x;
 };
 
-const blueFunctionWrapped = r.wrappedCallbackFunction(blueFunction);
+// cb is a new function in the red Realm that bridges the call to the blueFunction
+const redFunction = red.Function('cb', 'globalThis.myValue = "red"; cb(42); return globalThis.myValue;');
 
-const redFunction = r.Function('cb', 'return cb(42);');
+redFunction(blueFunction); // yields the string 'red'
 
-redFunction(blueFunctionWrapped);
-
-// myValue === 42
+myValue === 42; // true
 ```
 
-### Invariants
-
-The wrapped function cannot receive or return non-primitive arguments.
+Errors are wrapped into a TypeError while traveling from one realm to another.
 
 ```js
 const red = new Realm();
+
+class CustomError extends Error {};
+
 function blueFunction(x) {
-    return {}
+    throw new CustomError('meep');
 };
 
-const blueFunctionWrapped = r.wrappedCallbackFunction(blueFunction);
+const redFunction = red.Function('cb', `
+    try {
+        cb();
+    } catch (err) {
 
-const redFunction = r.Function('cb', 'return cb();');
+        // The error is a TypeError wrapping the abrupt completion CustomError from the blueFunction call
+        err.constructor === TypeError; // true
+        throw 'foo';
+    }
+`);
 
-redFunction(blueFunctionWrapped); // Throws TypeError
-```
+try {
+    redFunction(blueFunction);
+} catch(err) {
 
-## `importWrapped` Function
-
-Ref https://github.com/leobalter/realms-polyfill/issues/8
-
-In order to avoid string evaluation, we can reverse the usage of wrapped callback function to resolve injected modules into wrapped functions.
-
-```js
-const red = new Realm();
-
-const wrappedRedFn = await red.importWrapped('./specifier.js', 'injectedFunction');
-```
-
-This would be a rough equivalent of:
-
-```js
-const red = new Realm();
-let wrappedRedFn;
-
-{
-    const __redFunction = new red.AsyncFunction('spec', 'name', `
-        const ns = await import(spec);
-
-        if ({}.hasOwnProperty.call(ns, name)) {
-            return ns[name];
-        }
-
-        throw new TypeError('Binding name not available');
-    `);
-
-    wrappedRedFn = __redFunction('./specifier', 'injectedFunction').then(
-            fn => Realm.[WRAP_FUNCTION_INTERNAL](fn)
-        ).catch(err => throw new TypeError(err.message));
+    // The error is a TypeError wrapping the abrupt completion 'foo' from the redFunction call.
+    err.constructor === TypeError // true
 }
 ```
 
-This asserts the received `wrappedRedFn` is a Blue Function. When called, it triggers a call to the Red Function.
+The wrapped functions are __frozen__ and they share no properties from the other realm.
+
+```javascript
+const red = new Realm();
+
+function blueFunction() {
+    return 42;
+}
+
+blueFunction.x = 'noop';
+
+const redFunction = red.Function('cb', `
+    Object.isFrozen(cb); // true
+    cb(); // yields 42;
+    cb.x; // undefined
+    Object.prototype.hasOwnProperty.call(cb, 'x'); // false
+
+    return 1;
+`);
+
+redFunction(blueFunction); // yields 1
+```
+
+The autowrapping creates a new regular function within the other realm that bridges a call to the given function. The new function inherits from the realm's `%Function%`.
+
+```js
+const red = new Realm();
+const redFunction = r.Function('cb', 'return cb instanceof Function && Object.getPrototypeOf(cb) === Function.prototype;');
+
+function blueFunction() {}
+
+redFunction(blueFunction); // true
+```
+
+All the API checks is if the given value is __callable__. It does not run extra magic wrapping other functions.
+
+While this part still works, there is no automatic wrapping proposed here for returned promises or iterators. Sending async functions, classes, generators, and async generators are not useful.
+
+```javascript
+const red = new Realm();
+const redFunction = red.Function('cb', 'return cb instanceof Function && Object.getPrototypeOf(cb) === Function.prototype;');
+
+redFunction(async function() {}); // true
+```
+
+```javascript
+const red = new Realm();
+const redFunction = red.Function('cb', 'return cb();');
+
+// Throws a TypeError, cb() returned a Promise, which is a non primitive, non callable value.
+redFunction(async function() {});
+```
+
+The same auto wrapping happens for __callable__ values returned from a realm bridge.
+
+```javascript
+const red = new Realm();
+const redFunction = red.Function(`
+    globalThis.redValue = 42;
+    return function() {
+        return globalThis.redValue;
+    };
+`);
+
+const wrapped = redFunction();
+
+globalThis.redValue = 'fake';
+
+wrapped(); // yields 42
+```
+
+### Function this bindings are not exposed
+
+As the API only provides a bridge function, `this` is not exposed.
+
+```javascript
+const red = new Realm();
+const redFunction = red.Function('cb', `
+    // .call only applies to the bridge function created in this Realm
+    // The bridge will only channel the arguments
+    return cb.call({x: 'poison!'}, 2);
+`);
+
+function blueFunction(arg) {
+    return this.x * arg;
+}
+
+globalThis.x = 21;
+redFunction(blueFunction); // yields 42
+```
+
+## `importBinding` Bridge
+
+The `Realm#importBinding` can be used to inject modules using the dynamic `import` expression within the created Realm. This module returns a promise that is resolved when the import is resolved within the Realm. This promise will be resolved with a matching value of the given binding name.
+
+```js
+const r = new Realm();
+const promise = r.importBinding('./my-module.js', 'foo');
+
+const res = await promise;
+// res === <the foo binding for ./my-module.js>
+```
+
+The resolved value can be a primitive (Symbols included), or a wrapped function. Other non-primitive values would reject the promise in the incubator Realm.
+
+```javascript
+// ./module.js
+export const fooNumber = 42;
+export const timesTwo = (x) => x * 2;
+export default function(x, y) { return x * y; }
+
+export const nono = {};
+```
+
+```javascript
+// incubator Realm script
+const r = new Realm();
+const specifier = './my-module.js';
+
+// As the module is resolved within the child Realm r, we can just reuse
+// importBinding
+const [ fooN, timesTwo, myWrappedFn ] = await Promise.all(
+    r.importBinding(specifier, 'fooNumber'),
+    r.importBinding(specifier, 'timesTwo'),
+    r.importBinding(specifier, 'default'),
+);
+
+fooN; // 42
+typeof timesTwo; // 'function'
+
+// timesTwo is just a wrapped function that bridges to the original timesTwo
+// inside the child Realm r
+timesTwo instanceof Function; // true
+Object.getPrototypeOf(timesTwo) === Function.prototype; // true
+```
+
+A TypeError is thrown if the binding has a non-primitive, non-callable value.
+
+```javascript
+try {
+    await r.importBinding(specifier, 'nono'); // Throws TypeError
+} catch(err) {
+    err instanceof TypeError; // No identity discontinuity
+}
+```
+
+_There's no dynamic mapping to the primitive values from the imported names. The wrapped function defers a call to the imported function in the child realm._
+
+### `importBinding` auto wrapping
+
+```js
+const red = new Realm();
+
+const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction');
+```
+
+The received `wrappedRedFn` is a Blue Function. When called, it triggers a call to the Red Function captured from the module import.
 
 ```js
 assert(wrappedRedFn instanceof Function);
@@ -173,23 +261,50 @@ The injected module namespace and function is not leaked within the Red Realm, b
 
 ```javascript
 // specifier.js:
-export default function() {
-    /* ignored */
-}
-
 export function injectedFunction(x) {
-    return globalThis.someValue + x;
+    return `${globalThis.someValue}, ${x}!`;
 };
 ```
 
 ```javascript
 const red = new Realm();
 
-const wrappedRedFn = await red.importWrapped('./specifier.js', 'injectedFunction');
+const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction');
 
-red.eval('globalThis.someValue = "Hello, "');
+const redFunction = red.Function('globalThis.someValue = "Hello"');
+redFunction(); // sets a global someValue in the red Realm
 
-globalThis.someValue = 'Olá, ';
+globalThis.someValue = 'Olá';
 
-wrappedRedFn('World!'); // yields to 'Hello, World!'
+wrappedRedFn('World'); // yields to 'Hello, World!'
 ```
+
+### Open Questions
+
+Should a missing binding reject the importBinding promise?
+
+```javascript
+try {
+    await r.importBinding(specifier, 'popopop');
+} catch(err) {
+    err instanceof TypeError; // No identity discontinuity
+}
+```
+
+Should importBinding coerce the specifiers arguments (`ToPrimitive => string`) that are non-primitives before sending it to the child Realm? Otherwise, should it throw a TypeError for non string values?
+
+```javascript
+r.importBinding({ toString() { return './my-module.js'; } });
+```
+
+## CSP on and off modes
+
+The proposed API allows usage of the Realms API with regardless of CSP as some good usage is possible without string evaluation. The tradeoff for the string evaluation is still depending on the async execution for injecting code.
+
+* `importBinding`: does not require string evaluation
+* `Function`: requires string evaluation
+* Wrapped functions won't require string evaluation
+
+## Bikeshed
+
+The name `importBinding` is open for bikeshed.
