@@ -38,6 +38,20 @@ This mechanism allows the incubator realm to define logic inside the realm witho
 
 Additionally, this allows the incubator to easily pass identities when invoking a function inside the realm, e.g.: a symbol, which is not possible via `Realm.prototype.eval` because the Symbol is not something that you can point to from source text. This feature provides a synchronous communication mechanism that allows passing and returning primitive values across the two realms.
 
+## Non-callable objects will throw an error
+
+To avoid identity discontinuity, the evaluation cannot transfer objects. When evaluation completes with a non-callable object, the incubator realm throws a TypeError.
+
+```javascript
+const red = new Realm();
+
+try {
+    red.eval('({})');
+} catch(err) {
+    assert(err instanceof TypeError);
+}
+```
+
 ## <a id="fnwrapping"></a> Automatic function wrapping
 
 __Callbable__ values resolved in the evaluation are auto wrapped.
@@ -75,6 +89,26 @@ const redFunction = red.eval(`
 redFunction(blueFunction); // yields the string 'red'
 
 myValue === 42; // true
+```
+
+### Non-callable object returns
+
+The wrapped function throws a TypeError if it returns a non-callable object.
+
+```javascript
+const red = new Realm();
+
+const redFunction = red.eval(`
+    0, function() {
+        return {};
+    }
+`);
+
+try {
+    redFunction();
+} catch(err) {
+    assert(err instanceof TypeError);
+}
 ```
 
 ### Errors are wrapped into a TypeError
@@ -243,7 +277,7 @@ globalThis.redValue = 'fake';
 wrapped(); // yields 42
 ```
 
-### Function this bindings are not exposed
+### this bindings are not exposed
 
 As the API only provides a losely connecting function, so `this` is not exposed and `new.target` cannot be transfered to the other realm.
 
@@ -384,7 +418,7 @@ r.importBinding({ toString() { return './my-module.js'; } });
 The proposed API allows usage of the Realms API with regardless of CSP as some good usage is possible without string evaluation. The tradeoff for the string evaluation is still depending on the async execution for injecting code.
 
 * `importBinding`: does not require string evaluation
-* `Function`: requires string evaluation
+* `eval`: requires string evaluation
 * Wrapped functions won't require string evaluation
 
 ## Bikeshed
