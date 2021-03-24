@@ -9,7 +9,6 @@ window.Realm = class {
         const { contentWindow } = iframe;
         this.#RedFunction = contentWindow.Function;
         this.#RedEval = contentWindow.eval;
-        this.#RedAsyncFunction = contentWindow.eval('(async function() {}).constructor');
 
         iframe.remove();
 
@@ -18,7 +17,6 @@ window.Realm = class {
 
     #RedEval;
     #RedFunction;
-    #RedAsyncFunction;
 
     // #BlueFunction = Function;
     // #BlueAsyncFunction = (async function () {}).constructor;
@@ -95,40 +93,6 @@ window.Realm = class {
         };
     }
 
-    #channelAsyncFunction(redFn) {
-        const errorCatcher = this.#errorCatcher;
-        const getPrimitives = this.#getPrimitives.bind(this);
-        const isPrimitive = this.#isPrimitive;
-        const wrapperSymbol = this.#fakeIntrinsic.#WRAPPER;
-
-        return async (...args) => {
-            const primArgs = getPrimitives(args, true).map(arg => {
-                if (typeof arg === 'function' && arg[wrapperSymbol]) {
-                    return arg[wrapperSymbol];
-                } else {
-                    return arg;
-                }
-            });
-
-            // Needs to unwrap the promise from the other realm
-            let res;
-
-            try {
-                res = await redFn(...primArgs);
-            } catch (err) {
-                // errorCatcher will handle the error without creating a new async function
-                errorCatcher(() => { throw err; });
-            }
-
-            if (!isPrimitive(res)) {
-                throw new TypeError('Cross-Realm Error: function is not a primitive value');
-            }
-
-            // TODO: res cannot be an object
-            return res;
-        };
-    }
-
     get Function() {
         const errorCatcher = this.#errorCatcher;
         const getPrimitives = this.#getPrimitives.bind(this);
@@ -152,22 +116,6 @@ window.Realm = class {
         };
     }
 
-    get AsyncFunction() {
-        const errorCatcher = this.#errorCatcher;
-        const getPrimitives = this.#getPrimitives.bind(this);
-        const redAsyncFunction = this.#RedAsyncFunction;
-        const channel = this.#channelAsyncFunction.bind(this);
-
-        return function(...args) {
-            let redFn;
-            const primArgs = getPrimitives(args);
-
-            redFn = errorCatcher(() => redAsyncFunction(...primArgs));
-
-            return Object.freeze(channel(redFn));
-        };
-    }
-
     wrapperCallbackFunction(callback) {
         const res = (...args) => callback(...args);
 
@@ -179,15 +127,6 @@ window.Realm = class {
         });
 
         return Object.freeze(res);
-    }
-
-    // TODO: implement and test
-    import(...args) {
-
-        // It returns undefined intentionally
-        const asyncFn = this.AsyncFunction('...args', 'await import(...args);');
-
-        return asyncFn(...args);
     }
 
     static #WRAPPER = Symbol();
