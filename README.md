@@ -7,8 +7,8 @@ This comment describes a possible solution for the API of the Realm to work with
 ```ts
 declare class Realm {
     constructor();
-    eval(sourceText: string): any;
-    importBinding(specifier: string | function): Promise<any>;
+    eval(sourceText: string): PrimitiveValueOrCallable;
+    importBinding(specifier: string, bindingName: string): Promise<PrimitiveValueOrCallable>;
 }
 ```
 
