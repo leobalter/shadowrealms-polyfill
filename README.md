@@ -7,16 +7,16 @@ This comment describes a possible solution for the API of the Realm to work with
 ```ts
 declare class Realm {
     constructor();
-    eval(sourceText: string): PrimitiveValueOrCallable;
-    importBinding(specifier: string, bindingName: string): Promise<PrimitiveValueOrCallable>;
+    evaluate(sourceText: string): PrimitiveValueOrCallable;
+    importValue(specifier: string, bindingName: string): Promise<PrimitiveValueOrCallable>;
 }
 ```
 
-## Eval with connecting functions
+## Evaluate with connecting functions
 
-The Realm Eval operates regularly as an indirect eval in the created Realm but it can only return primitive values or __callable__ objects. Other non-primitive values would throw a TypeError in the incubator Realm.
+The Realm#evaluate method is most analogous to indirect eval though PerformEval, diverging at _where_ the source is evaluated and _what_ can be returned, ie. primitive values or __callable__ objects. Other non-primitive values would throw a TypeError in the incubator Realm.
 
-When `Realm#eval` results in callable objects - generally functions - it creates a new _wrapped_ function in the incubator realm that chains to the inner Realm's function when called.
+When `Realm#evaluate` results in callable objects - generally functions - it creates a new _wrapped_ function in the incubator realm that chains to the inner Realm's function when called.
 
 This _wrapped_ function can also only receive primitive values or __callable__ objects as arguments. If the incubator Realm calls the wrapped function with another function as argument, the chained function in the child realm will receive a wrapped function of the given argument.
 
@@ -24,10 +24,10 @@ The wrapped functions are frozen and do not share any identity cross realms with
 
 ```javascript
 const red = new Realm();
-const redNumber = red.eval('var x = 42; x;');
+const redNumber = red.evaluate('var x = 42; x;');
 redNumber; // yields 42
 
-const redFunction = red.eval('(function(x) { return x * 2; })');
+const redFunction = red.evaluate('(function(value) { return value * 2; })');
 
 redFunction(21); // yields 42
 ```
@@ -35,8 +35,6 @@ redFunction(21); // yields 42
 A good analogy here is a cross realm bound function, which is a function in a realm that is available in the incubator realm, this function's job is to call another function, this time, a function inside the realm, that might or might not return a completion value.
 
 This mechanism allows the incubator realm to define logic inside the realm without relying on populating the global object with global names just for the purpose of communication between the two realms.
-
-Additionally, this allows the incubator to easily pass identities when invoking a function inside the realm, e.g.: a symbol, which is not possible via `Realm.prototype.eval` because the Symbol is not something that you can point to from source text. This feature provides a synchronous communication mechanism that allows passing and returning primitive values across the two realms.
 
 ## Non-callable objects will throw an error
 
@@ -46,7 +44,7 @@ To avoid identity discontinuity, the evaluation cannot transfer objects. When ev
 const red = new Realm();
 
 try {
-    red.eval('({})');
+    red.evaluate('[]');
 } catch(err) {
     assert(err instanceof TypeError);
 }
@@ -54,7 +52,7 @@ try {
 
 ## <a id="fnwrapping"></a> Automatic function wrapping
 
-__Callbable__ values resolved in the evaluation are auto wrapped.
+__Callable__ values resolved in the evaluation are auto wrapped.
 
 ```javascript
 const red = new Realm();
