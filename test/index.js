@@ -149,9 +149,9 @@ module('Realm#evaluate', ({ beforeEach }) => {
             // this extends the previous test
             r.evaluate(`
                 function fn() { return 42; }
-                const arrow = x => x * 2;
-                const pFn = new Proxy(fn, {
-                    call() {
+                globalThis.arrow = x => x * 2;
+                globalThis.pFn = new Proxy(fn, {
+                    apply() {
                         pFn.used = 1;
                         return 39;
                     }
@@ -178,25 +178,25 @@ module('Realm#evaluate', ({ beforeEach }) => {
 
             const wrappedArrow = r.evaluate('arrow');
             t.strictEqual(typeof wrappedArrow, 'function', 'arrow function wrapped');
-            t.strictEqual(wrappedArrow(7), 14);
-            t.strictEqual(wrappedArrow.x, undefined);
+            t.strictEqual(wrappedArrow(7), 14, 'arrow function, return');
+            t.strictEqual(wrappedArrow.x, undefined, 'arrow function, no property');
 
             const wrappedProxied = r.evaluate('pFn');
             t.strictEqual(typeof wrappedProxied, 'function', 'proxied ordinary function wrapped');
-            t.strictEqual(r.evaluate('pFn.used'), 0);
-            t.strictEqual(wrappedProxied(), 39);
-            t.strictEqual(r.evaluate('pFn.used'), 1);
-            t.strictEqual(wrappedProxied.x, undefined);
+            t.strictEqual(r.evaluate('pFn.used'), undefined, 'pFn not called yet');
+            t.strictEqual(wrappedProxied(), 39, 'return of the proxied callable');
+            t.strictEqual(r.evaluate('pFn.used'), 1, 'pfn called');
+            t.strictEqual(wrappedProxied.x, undefined, 'proxy callable, no property');
 
             const wrappedAsync = r.evaluate('aFn');
             t.strictEqual(typeof wrappedAsync, 'function', 'async function wrapped');
             t.throws(() => wrappedAsync(), TypeError, 'wrapped function cannot return non callable object');
-            t.strictEqual(wrappedAsync.x, undefined);
+            t.strictEqual(wrappedAsync.x, undefined, 'async fn, no property');
 
             const wrappedGenerator = r.evaluate('genFn');
             t.strictEqual(typeof wrappedGenerator, 'function', 'gen function wrapped');
             t.throws(() => wrappedGenerator(), TypeError, 'wrapped function cannot return non callable object');
-            t.strictEqual(wrappedGenerator.x, undefined);
+            t.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
         });
 
         test('new wrapping on each evaluation', t => {

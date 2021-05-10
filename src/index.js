@@ -6,6 +6,7 @@
             this.#iframe = document.createElement('iframe');
             this.#iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
             this.#iframe.style.display = 'none';
+            this.#realm.attach();
         }
 
         #iframe = null;
@@ -25,35 +26,31 @@
         }
 
         #evaluateInRealm = (str) => {
-            const realm = this.#realm.attach();
-            const result = realm.eval(str);
-            this.#realm.detach();
+            const result = this.#iframe.contentWindow.eval(str);
 
             return this.#callableOrPrimitive(result);
         };
 
         #callableOrPrimitive(value) {
             if (typeof value === 'function') {
-                return this.#wrapCallables(value);
+                return this.#wrap(value);
             }
 
             if (this.#isPrimitive(value)) {
                 return value;
             }
 
-            throw new TypeError('Cross-Realm Error: Evaluation result is not a primitive value');
+            // type is 'object';
+            throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
         }
 
-        #wrapCallables(connectedFn) {
-            const wrapper = this.#wrapCallables.bind(this);
+        #wrap(connectedFn) {
             const callableOrPrimitive = this.#callableOrPrimitive.bind(this);
 
             return function(...args) {
-                const wrappedArgs = Array.from(args, arg => wrapper(arg));
+                const wrappedArgs = Array.from(args, arg => callableOrPrimitive(arg));
 
-                const result = connectedFn(...wrappedArgs);
-
-                return callableOrPrimitive(result);
+                return callableOrPrimitive(connectedFn(...wrappedArgs));
             }
         }
 
