@@ -1,6 +1,6 @@
 {
 
-    const wm = new WeakMap();
+    // const wm = new WeakMap();
     class Realm {
         constructor() {
             this.#iframe = document.createElement('iframe');
@@ -9,8 +9,6 @@
         }
 
         #iframe = null;
-        // This simulates `%Realm%`
-        #IntrinsicRealm = this.constructor;
 
         get #realm() {
             const attach = () => {
@@ -31,25 +29,43 @@
             const result = realm.eval(str);
             this.#realm.detach();
 
-            if (typeof result === 'function') {
-                console.log(result);
-
-                return Object.freeze(result);
-            }
-
-            return result;
+            return this.#callableOrPrimitive(result);
         };
 
+        #callableOrPrimitive(value) {
+            if (typeof value === 'function') {
+                return this.#wrapCallables(value);
+            }
+
+            if (this.#isPrimitive(value)) {
+                return value;
+            }
+
+            throw new TypeError('Cross-Realm Error: Evaluation result is not a primitive value');
+        }
+
+        #wrapCallables(connectedFn) {
+            const wrapper = this.#wrapCallables.bind(this);
+            const callableOrPrimitive = this.#callableOrPrimitive.bind(this);
+
+            return function(...args) {
+                const wrappedArgs = Array.from(args, arg => wrapper(arg));
+
+                const result = connectedFn(...wrappedArgs);
+
+                return callableOrPrimitive(result);
+            }
+        }
+
         #isPrimitive(value) {
-            return typeof value === 'function' || (value == null || typeof value !== 'object');
+            return value == null || typeof value !== 'object';
         }
 
         evaluate(str) {
-            const result = this.#errorCatcher(() => this.#evaluateInRealm(str));
-            if (!this.#isPrimitive(result)) {
-                throw new TypeError('Cross-Realm Error: Evaluation result is not a primitive value');
+            if (typeof str !== 'string') {
+                throw new TypeError('argument needs to be a string');
             }
-            return result;
+            return this.#errorCatcher(() => this.#evaluateInRealm(str));
         }
 
         #errorCatcher(fn) {
