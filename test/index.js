@@ -228,9 +228,9 @@ module('Realm#evaluate', ({ beforeEach }) => {
         test('wrapped function from return values share no identity', t => {
             r.evaluate(`
                 function fn() { return 42; }
-                const arrow = x => x * 2;
-                const pFn = new Proxy(fn, {
-                    call() => {
+                globalThis.arrow = x => x * 2;
+                globalThis.pFn = new Proxy(fn, {
+                    apply() {
                         pFn.used = 1;
                         return 39;
                     }
@@ -252,30 +252,30 @@ module('Realm#evaluate', ({ beforeEach }) => {
 
             const wrappedOrdinary = r.evaluate('() => fn')();
             t.strictEqual(typeof wrappedOrdinary, 'function', 'ordinary function wrapped');
-            t.strictEqual(wrappedOrdinary(), 42);
-            t.strictEqual(wrappedOrdinary.x, undefined);
+            t.strictEqual(wrappedOrdinary(), 42, 'ordinary, return');
+            t.strictEqual(wrappedOrdinary.x, undefined, 'ordinary, no property shared');
 
             const wrappedArrow = r.evaluate('() => arrow')();
             t.strictEqual(typeof wrappedArrow, 'function', 'arrow function wrapped');
-            t.strictEqual(wrappedArrow(7), 14);
-            t.strictEqual(wrappedArrow.x, undefined);
+            t.strictEqual(wrappedArrow(7), 14, 'arrow function, return');
+            t.strictEqual(wrappedArrow.x, undefined, 'arrow function, no property');
 
             const wrappedProxied = r.evaluate('() => pFn')();
             t.strictEqual(typeof wrappedProxied, 'function', 'proxied ordinary function wrapped');
-            t.strictEqual(r.evaluate('pFn.used'), 0);
-            t.strictEqual(wrappedProxied(), 39);
-            t.strictEqual(r.evaluate('pFn.used'), 1);
-            t.strictEqual(wrappedProxied.x, undefined);
+            t.strictEqual(r.evaluate('pFn.used'), undefined, 'pFn not called yet');
+            t.strictEqual(wrappedProxied(), 39, 'return of the proxied callable');
+            t.strictEqual(r.evaluate('pFn.used'), 1, 'pfn called');
+            t.strictEqual(wrappedProxied.x, undefined, 'proxy callable, no property');
 
             const wrappedAsync = r.evaluate('() => aFn')();
             t.strictEqual(typeof wrappedAsync, 'function', 'async function wrapped');
             t.throws(() => wrappedAsync(), TypeError, 'wrapped function cannot return non callable object');
-            t.strictEqual(wrappedAsync.x, undefined);
+            t.strictEqual(wrappedAsync.x, undefined, 'async fn, no property');
 
             const wrappedGenerator = r.evaluate('() => genFn')();
             t.strictEqual(typeof wrappedGenerator, 'function', 'gen function wrapped');
             t.throws(() => wrappedGenerator(), TypeError, 'wrapped function cannot return non callable object');
-            t.strictEqual(wrappedGenerator.x, undefined);
+            t.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
         });
 
         test('arguments are wrapped into the inner Realm', t => {
@@ -309,8 +309,8 @@ module('Realm#evaluate', ({ beforeEach }) => {
                         return 4;
                     }
 
-                    // Let the recursiveness happens!
-                    if (wrapped3(fn, fn, wrapped3) !== true) {
+                    // No unwrapping
+                    if (wrapped3 === fn) {
                         return 5;
                     };
 
