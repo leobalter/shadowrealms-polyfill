@@ -28,10 +28,10 @@
         #evaluateInRealm = (str) => {
             const result = this.#iframe.contentWindow.eval(str);
 
-            return this.#callableOrPrimitive(result);
+            return this.#getPrimitiveOrWrappedCallable(result);
         };
 
-        #callableOrPrimitive(value) {
+        #getPrimitiveOrWrappedCallable(value) {
             if (typeof value === 'function') {
                 return this.#wrap(value);
             }
@@ -45,12 +45,12 @@
         }
 
         #wrap(connectedFn) {
-            const callableOrPrimitive = this.#callableOrPrimitive.bind(this);
+            const getPrimitiveOrWrappedCallable = this.#getPrimitiveOrWrappedCallable.bind(this);
 
             return function(...args) {
-                const wrappedArgs = Array.from(args, arg => callableOrPrimitive(arg));
+                const wrappedArgs = args.map(getPrimitiveOrWrappedCallable);
 
-                return callableOrPrimitive(connectedFn(...wrappedArgs));
+                return getPrimitiveOrWrappedCallable(connectedFn(...wrappedArgs));
             }
         }
 
