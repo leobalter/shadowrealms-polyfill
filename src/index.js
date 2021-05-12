@@ -1,6 +1,4 @@
 {
-
-    // const wm = new WeakMap();
     class Realm {
         constructor() {
             this.#iframe = document.createElement('iframe');
