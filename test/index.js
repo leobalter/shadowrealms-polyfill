@@ -6,178 +6,341 @@ module('Realm', () => {
     });
 });
 
-module('Realm#eval', ({ beforeEach }) => {
+module('Realm#evaluate', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new Realm();
     });
 
-    test('resolves to common primitive values', t => {
+    test('only accepts string arguments', t => {
+        t.throws(
+            () => {
+                r.evaluate(['1+1']);
+            },
+            TypeError,
+            'object with toString'
+        );
 
-        t.strictEqual(r.eval('1 + 1'), 2);
-        t.strictEqual(r.eval('null'), null);
-        t.strictEqual(r.eval(''), undefined, 'undefined from empty completion');
-        t.strictEqual(r.eval('undefined'), undefined);
-        t.strictEqual(r.eval('true'), true);
-        t.strictEqual(r.eval('false'), false);
-        t.strictEqual(r.eval('function fn() {}'), undefined, 'fn declaration has empty completion'); 
-        t.ok(Number.isNaN(r.eval('NaN')));
-        t.strictEqual(r.eval('-0'), -0);
-        t.strictEqual(r.eval('"str"'), 'str');
+        t.throws(
+            () => {
+                r.evaluate({ [Symbol.toPrimitive]() { return '1+1'; }});
+            },
+            TypeError,
+            'object with @@toPrimitive'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(1);
+            },
+            TypeError,
+            'number'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(Symbol());
+            },
+            TypeError,
+            'symbol'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(null);
+            },
+            TypeError,
+            'null'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(undefined);
+            },
+            TypeError,
+            'undefined'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(true);
+            },
+            TypeError,
+            'true'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(false);
+            },
+            TypeError,
+            'false'
+        );
+    });
+
+    test('resolves to common primitive values', t => {
+        t.strictEqual(r.evaluate('1 + 1'), 2);
+        t.strictEqual(r.evaluate('null'), null);
+        t.strictEqual(r.evaluate(''), undefined, 'undefined from empty completion');
+        t.strictEqual(r.evaluate('undefined'), undefined);
+        t.strictEqual(r.evaluate('true'), true);
+        t.strictEqual(r.evaluate('false'), false);
+        t.strictEqual(r.evaluate('function fn() {}'), undefined, 'fn declaration has empty completion');
+        t.ok(Number.isNaN(r.evaluate('NaN')));
+        t.strictEqual(r.evaluate('-0'), -0);
+        t.strictEqual(r.evaluate('"str"'), 'str');
     });
 
     test('resolves to symbol values (primitives)', t => {
-        const s = r.eval('Symbol()');
+        const s = r.evaluate('Symbol()');
 
         t.strictEqual(typeof s, 'symbol');
         t.ok(Symbol.prototype.toString.call(s));
-
         t.strictEqual(s.constructor, Symbol, 'primitive does not expose other Realm constructor');
         t.strictEqual(Object.getPrototypeOf(s), Symbol.prototype, '__proto__ of s is from the blue realm');
+        t.strictEqual(r.evaluate('Symbol.for("x")'), Symbol.for('x'));
     });
 
-    test('throws a TypeError if eval resolves to object values', t => {
-        t.throws(() => r.eval('({})'), TypeError, 'object literal');
-        t.throws(() => r.eval(`
+    test('throws a TypeError if evaluate resolves to object values', t => {
+        t.throws(() => r.evaluate('globalThis'), TypeError, 'globalThis');
+        t.throws(() => r.evaluate('[]'), TypeError, 'array literal');
+        t.throws(() => r.evaluate(`
             ({
                 [Symbol.toPrimitive]() { return 'string'; },
                 toString() { return 'str'; },
                 valueOf() { return 1; }
             });
         `), TypeError, 'object literal with immediate primitive coercion methods');
-        t.throws(() => r.eval('Object.create(null)'), 'ordinary object with null __proto__');
-        t.throws(() => r.eval('function fn() {} fn'), TypeError, 'value from a fn declaration');
-        t.throws(() => r.eval('(function() {})'), TypeError, 'function expression');
-        t.throws(() => r.eval('(async function() {})'), TypeError, 'async function expression');
-        t.throws(() => r.eval('(function*() {})'), TypeError, 'generator expression');
-        t.throws(() => r.eval('(async function*() {})'), TypeError, 'async generator expression');
-        t.throws(() => r.eval('() => {}'), TypeError, 'arrow function');
+        t.throws(() => r.evaluate('Object.create(null)'), 'ordinary object with null __proto__');
     });
 
     test('Errors from the other realm is wrapped into a TypeError', t => {
-        t.throws(() => r.eval('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
-        t.throws(() => r.eval('throw 42'), TypeError, 'throw primitive => TypeError');
-        t.throws(() => r.eval('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
-        t.throws(() => r.eval('throw new TypeError("aaa")'), TypeError, 'RedTypeError => BlueTypeError');
-    });
-});
-
-module('Realm#Function', ({ beforeEach }) => {
-    let r;
-    beforeEach(() => {
-        r = new Realm();
+        t.throws(() => r.evaluate('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
+        t.throws(() => r.evaluate('throw 42'), TypeError, 'throw primitive => TypeError');
+        t.throws(() => r.evaluate('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
+        t.throws(() => r.evaluate('throw new TypeError("aaa")'), TypeError, 'RedTypeError => BlueTypeError');
     });
 
-    test('creates a new function', t => {
-        const fn = r.Function('x', 'return x * 3;');
-        t.strictEqual(typeof fn, 'function');
-        t.ok(fn instanceof Function);
-        t.strictEqual(fn.constructor, Function);
-        t.strictEqual(Object.getPrototypeOf(fn), Function.prototype);
-
-        t.strictEqual(fn(2), 6);
-    });
-
-    test('new Function', t => {
-        const fn = new r.Function('x', 'return x * 2;');
-
-        t.strictEqual(typeof fn, 'function');
-        t.ok(fn instanceof Function);
-        t.strictEqual(fn.constructor, Function);
-        t.strictEqual(Object.getPrototypeOf(fn), Function.prototype);
-
-        t.strictEqual(fn(2), 4);
-    });
-
-    test('noop', t => {
-        const fn = r.Function();
-        t.strictEqual(fn(), undefined);
-    });
-
-    test('returned function is frozen', t => {
-        const fn = r.Function();
-
-        t.ok(Object.isFrozen(fn));
-        t.notOk(Object.isExtensible(fn));
-        t.ok(Object.isSealed(fn));
-    });
-
-    test('capture values from other realm', t => {
-        r.eval('globalThis.__redValue = 42');
-        const fn = new r.Function('return globalThis.__redValue;');
-        t.strictEqual(fn(), 42);
-        t.strictEqual(globalThis.__redValue, undefined);
-    });
-
-    test('symbol args will break', t => {
-        t.throws(() => r.Function(Symbol()), TypeError);
-        t.throws(() => new r.Function(Symbol()), TypeError);
-    });
-
-    test('toString coercion: params and body', t => {
-
-        t.throws(() => r.Function({}), TypeError);
-        t.throws(() => new r.Function({}), TypeError);
-
-        const fn = r.Function(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
-        t.strictEqual(fn(2, 3), 5);
-
-        const nfn = new r.Function(['x', 'y'], 'return x + y;'); // Follows Function quirk behavior
-        t.strictEqual(nfn(2, 3), 5);
-
-        const arg1 = ['x'];
-        const body = { toString() { return 'return x * 2;' }};
-
-        const coerced = r.Function(arg1, body);
-        t.strictEqual(coerced(5), 10);
-    });
-
-    // TODO: review this
-    // In the current behavior, all args are coerced to primitive before sending to the red function
-    // Should it just throw with non primitive values?
-    test('toString coercion: non primitive args', t => {
-        const checkTypes = r.Function('...args', `
-            const res = args.filter(arg => typeof arg === 'string');
-            return res.length === args.length;
-        `);
-        t.ok(checkTypes({}, {toString() {return 'a';}}, []));
-
-        function noop() { /* lol */ }
-        function asyncNoop() { /* I'm coerced into a string */ }
-        function generatorNoop() { return 42; }
-        function asyncGeneratorNoop() {}
-        const arrowNoop = () => {};
-
-        t.ok(checkTypes(noop, asyncNoop, generatorNoop, asyncGeneratorNoop, arrowNoop));
-    });
-
-    test('throws a typeerror if it returns an object', t => {
-        const fn = r.Function('return {}');
-        t.throws(() => fn(), TypeError);
-
-        const fnArr = r.Function('return []');
-        t.throws(() => fnArr(), TypeError);
-
-        const fnFn = r.Function('return function() {}');
-        t.throws(() => fnFn(), TypeError);
-    });
-
-    test('returns primitive values', t => {
-        const fn = r.Function('x', 'return x');
-        const values = [0, 1, false, true, 'string', Infinity, null, undefined, Symbol()];
-
-        t.expect(values.length + 1);
-
-        t.ok(Number.isNaN(fn(NaN)));
-
-        values.forEach(value => {
-            t.strictEqual(fn(value), value);
+    module('wrapped functions', () => {
+        test('accepts callable objects', t => {
+            t.strictEqual(typeof r.evaluate('function fn() {} fn'), 'function', 'value from a fn declaration');
+            t.strictEqual(typeof r.evaluate('(function() {})'), 'function', 'function expression');
+            t.strictEqual(typeof r.evaluate('(async function() {})'), 'function', 'async function expression');
+            t.strictEqual(typeof r.evaluate('(function*() {})'), 'function', 'generator expression');
+            t.strictEqual(typeof r.evaluate('(async function*() {})'), 'function', 'async generator expression');
+            t.strictEqual(typeof r.evaluate('() => {}'), 'function', 'arrow function');
         });
-    });
 
-    test('Any error from the function execution is wrapped into a TypeError', t => {
-        const redFn = r.Function('throw 42;');
+        test('wrapped functions share no properties', t => {
+            const wrapped = r.evaluate(`
+                function fn() {
+                    return fn.secret;
+                }
 
-        t.throws(() => redFn(), TypeError);
+                fn.secret = 'confidential';
+                fn;
+            `);
+
+            t.strictEqual(wrapped.secret, undefined);
+            t.strictEqual(wrapped(), 'confidential');
+        });
+
+        test('wrapped functions share no properties, extended', t => {
+            // this extends the previous test
+            r.evaluate(`
+                function fn() { return 42; }
+                globalThis.arrow = x => x * 2;
+                globalThis.pFn = new Proxy(fn, {
+                    apply() {
+                        pFn.used = 1;
+                        return 39;
+                    }
+                });
+                async function aFn() {
+                    return 1;
+                }
+
+                function * genFn() {
+                    return 1;
+                }
+
+                fn.x = 'secrets';
+                arrow.x = 'secrets';
+                pFn.x = 'secrets';
+                aFn.x = 'secrets';
+                genFn.x = 'secrets';
+            `);
+
+            const wrappedOrdinary = r.evaluate('fn');
+            t.strictEqual(typeof wrappedOrdinary, 'function', 'ordinary function wrapped');
+            t.strictEqual(wrappedOrdinary(), 42, 'ordinary, return');
+            t.strictEqual(wrappedOrdinary.x, undefined, 'ordinary, no property shared');
+
+            const wrappedArrow = r.evaluate('arrow');
+            t.strictEqual(typeof wrappedArrow, 'function', 'arrow function wrapped');
+            t.strictEqual(wrappedArrow(7), 14, 'arrow function, return');
+            t.strictEqual(wrappedArrow.x, undefined, 'arrow function, no property');
+
+            const wrappedProxied = r.evaluate('pFn');
+            t.strictEqual(typeof wrappedProxied, 'function', 'proxied ordinary function wrapped');
+            t.strictEqual(r.evaluate('pFn.used'), undefined, 'pFn not called yet');
+            t.strictEqual(wrappedProxied(), 39, 'return of the proxied callable');
+            t.strictEqual(r.evaluate('pFn.used'), 1, 'pfn called');
+            t.strictEqual(wrappedProxied.x, undefined, 'proxy callable, no property');
+
+            const wrappedAsync = r.evaluate('aFn');
+            t.strictEqual(typeof wrappedAsync, 'function', 'async function wrapped');
+            t.throws(() => wrappedAsync(), TypeError, 'wrapped function cannot return non callable object');
+            t.strictEqual(wrappedAsync.x, undefined, 'async fn, no property');
+
+            const wrappedGenerator = r.evaluate('genFn');
+            t.strictEqual(typeof wrappedGenerator, 'function', 'gen function wrapped');
+            t.throws(() => wrappedGenerator(), TypeError, 'wrapped function cannot return non callable object');
+            t.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
+        });
+
+        test('new wrapping on each evaluation', t => {
+            r.evaluate(`
+                function fn() {
+                    return 42;
+                }
+            `);
+
+            const wrapped = r.evaluate('fn');
+            const otherWrapped = r.evaluate('fn');
+
+            t.notStrictEqual(wrapped, otherWrapped);
+            t.strictEqual(typeof wrapped, 'function');
+            t.strictEqual(typeof otherWrapped, 'function');
+        });
+
+        test('wrapped functions can resolve callable returns', t => {
+            const wrapped = r.evaluate('x => y => x * y');
+            const nestedWrapped = wrapped(2);
+            const otherNestedWrapped = wrapped(4);
+
+            t.strictEqual(otherNestedWrapped(3), 12);
+            t.strictEqual(nestedWrapped(3), 6);
+
+            t.notStrictEqual(nestedWrapped, otherNestedWrapped, 'new wrapping for each return');
+        });
+
+        test('wrapped function from return values share no identity', t => {
+            r.evaluate(`
+                function fn() { return 42; }
+                globalThis.arrow = x => x * 2;
+                globalThis.pFn = new Proxy(fn, {
+                    apply() {
+                        pFn.used = 1;
+                        return 39;
+                    }
+                });
+                async function aFn() {
+                    return 1;
+                }
+
+                function * genFn() {
+                    return 1;
+                }
+
+                fn.x = 'secrets';
+                arrow.x = 'secrets';
+                pFn.x = 'secrets';
+                aFn.x = 'secrets';
+                genFn.x = 'secrets';
+            `)
+
+            const wrappedOrdinary = r.evaluate('() => fn')();
+            t.strictEqual(typeof wrappedOrdinary, 'function', 'ordinary function wrapped');
+            t.strictEqual(wrappedOrdinary(), 42, 'ordinary, return');
+            t.strictEqual(wrappedOrdinary.x, undefined, 'ordinary, no property shared');
+
+            const wrappedArrow = r.evaluate('() => arrow')();
+            t.strictEqual(typeof wrappedArrow, 'function', 'arrow function wrapped');
+            t.strictEqual(wrappedArrow(7), 14, 'arrow function, return');
+            t.strictEqual(wrappedArrow.x, undefined, 'arrow function, no property');
+
+            const wrappedProxied = r.evaluate('() => pFn')();
+            t.strictEqual(typeof wrappedProxied, 'function', 'proxied ordinary function wrapped');
+            t.strictEqual(r.evaluate('pFn.used'), undefined, 'pFn not called yet');
+            t.strictEqual(wrappedProxied(), 39, 'return of the proxied callable');
+            t.strictEqual(r.evaluate('pFn.used'), 1, 'pfn called');
+            t.strictEqual(wrappedProxied.x, undefined, 'proxy callable, no property');
+
+            const wrappedAsync = r.evaluate('() => aFn')();
+            t.strictEqual(typeof wrappedAsync, 'function', 'async function wrapped');
+            t.throws(() => wrappedAsync(), TypeError, 'wrapped function cannot return non callable object');
+            t.strictEqual(wrappedAsync.x, undefined, 'async fn, no property');
+
+            const wrappedGenerator = r.evaluate('() => genFn')();
+            t.strictEqual(typeof wrappedGenerator, 'function', 'gen function wrapped');
+            t.throws(() => wrappedGenerator(), TypeError, 'wrapped function cannot return non callable object');
+            t.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
+        });
+
+        test('arguments are wrapped into the inner Realm', t => {
+            const blueFn = (x, y) => x + y;
+
+            const redWrappedFn = r.evaluate(`
+            0, function(blueWrappedFn, a, b, c) {
+                return blueWrappedFn(a, b) * c;
+            }
+            `);
+            t.strictEqual(redWrappedFn(blueFn, 2, 3, 4), 20);
+        });
+
+        test('arguments are wrapped into the inner Realm, extended', t => {
+            const blueFn = (x, y) => x + y;
+
+            const redWrappedFn = r.evaluate(`
+                function fn(wrapped1, wrapped2, wrapped3) {
+                    if (wrapped1.x) {
+                        return 1;
+                    }
+                    if (wrapped2.x) {
+                        return 2;
+                    }
+                    if (wrapped3.x) {
+                        // Not unwrapped
+                        return 3;
+                    }
+                    if (wrapped1 === wrapped2) {
+                        // Always a new wrapped function
+                        return 4;
+                    }
+
+                    // No unwrapping
+                    if (wrapped3 === fn) {
+                        return 5;
+                    };
+
+                    return true;
+                }
+                fn.x = 'secret';
+                fn;
+            `);
+            t.strictEqual(redWrappedFn(blueFn, blueFn, redWrappedFn), true);
+        });
+
+        test('Wrapped function observing their scopes', t => {
+            let myValue;
+
+            function blueFn(x) {
+                myValue = x;
+                return myValue;
+            }
+
+            // cb is a new function in the red Realm that chains the call to the blueFn
+            const redFunction = r.evaluate(`
+                var myValue = 'red';
+                0, function(cb) {
+                    cb(42);
+                    return myValue;
+                };
+            `);
+
+            t.strictEqual(redFunction(blueFn), 'red');
+            t.strictEqual(myValue, 42);
+        });
     });
 });

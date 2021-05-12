@@ -8,7 +8,8 @@
     "test:ci": "karma start --browsers=ChromeHeadless,FirefoxHeadless --single-run",
     "test:ci-safari": "karma start --browsers=Safari --single-run",
     "test": "rm -rf coverage && karma start --single-run",
-    "lint": "eslint 'src/**/*.js' 'test/**/*.js'"
+    "lint": "eslint 'src/**/*.js' 'test/**/*.js'",
+    "build": "babel src --out-dir lib"
   },
   "keywords": [],
   "author": "Leo Balter <leonardo.balter@gmail.com>",
