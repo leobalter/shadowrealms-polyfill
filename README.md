@@ -58,7 +58,7 @@ __Callable__ values resolved in the evaluation are auto wrapped.
 const red = new Realm();
 const blueFunction = (x, y) => x + y;
 
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(redFunctionArg, a, b, c) {
         return redFunctionArg(a, b) * c;
     }
@@ -76,7 +76,7 @@ function blueFunction(x) {
 };
 
 // cb is a new function in the red Realm that chains the call to the blueFunction
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         globalThis.myValue = "red";
         cb(42);
@@ -96,7 +96,7 @@ The wrapped function throws a TypeError if it returns a non-callable object.
 ```javascript
 const red = new Realm();
 
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function() {
         return {};
     }
@@ -117,13 +117,13 @@ Errors are wrapped into a TypeError while traveling from one realm to another.
 const red = new Realm();
 
 try {
-    red.eval('throw "foo"');
+    red.evaluate('throw "foo"');
 } catch(err) {
     assert(err.constructor === TypeError);
 }
 
 try {
-    red.eval('throw new Error()');
+    red.evaluate('throw new Error()');
 } catch(err) {
     assert(err.constructor === TypeError);
 }
@@ -140,7 +140,7 @@ function blueFunction(x) {
     throw new CustomError('meep');
 };
 
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         try {
             cb();
@@ -176,7 +176,7 @@ function blueFunction() {
 
 blueFunction.x = 'noop';
 
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         Object.isFrozen(cb); // true
         cb(); // yields 42;
@@ -198,7 +198,7 @@ The autowrapping creates a new regular function within the other realm that chai
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         return cb instanceof Function &&
             Object.getPrototypeOf(cb) === Function.prototype;
@@ -218,7 +218,7 @@ While this part still works, there is no automatic wrapping proposed here for re
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         return cb instanceof Function &&
             Object.getPrototypeOf(cb) === Function.prototype;
@@ -230,7 +230,7 @@ redFunction(async function() {}); // true
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
         return cb();
     }
@@ -246,7 +246,7 @@ Addressing callable objects allows chaining to Proxy wrapped functions.
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     new Proxy(function fn() {}, {
         call(...) { ... }
     });
@@ -259,7 +259,7 @@ The same auto wrapping happens for __callable__ values returned from a realm cha
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function() {
         globalThis.redValue = 42;
         return function() {
@@ -281,7 +281,7 @@ As the API only provides a losely connecting function, so `this` is not exposed 
 
 ```javascript
 const red = new Realm();
-const redFunction = red.eval(`
+const redFunction = red.evaluate(`
     0, function(cb) {
 
         // .call only applies to the wrapped function created in this Realm
@@ -385,7 +385,7 @@ const red = new Realm();
 const wrappedRedFn = await red.importBinding('./specifier.js', 'injectedFunction');
 
 // sets a global someValue in the red Realm
-red.eval('globalThis.someValue = "Hello"');
+red.evaluate('globalThis.someValue = "Hello"');
 
 // and a global someValue in the blue Realm
 globalThis.someValue = 'Olá';
@@ -415,10 +415,6 @@ r.importBinding({ toString() { return './my-module.js'; } });
 
 The proposed API allows usage of the Realms API with regardless of CSP as some good usage is possible without string evaluation. The tradeoff for the string evaluation is still depending on the async execution for injecting code.
 
-* `importBinding`: does not require string evaluation
-* `eval`: requires string evaluation
-* Wrapped functions won't require string evaluation
+* `importValue`: does not require string evaluation
+* `evaluate`: requires string evaluation
 
-## Bikeshed
-
-The name `importBinding` is open for bikeshed.
