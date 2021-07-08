@@ -1,4 +1,4 @@
-# Isolated Realm API changes
+# Callable Boundary Realms
 
 This comment describes a possible solution for the API of the Realm to work with the new isolation model described in [this issue](https://github.com/tc39/proposal-realms/issues/289).
 
