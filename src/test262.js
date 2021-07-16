@@ -3,7 +3,7 @@
     class Realm {
         constructor() {
             if (!$262 || !$262.createRealm) {
-                throw new Error("Cross-Realm Error: Realm creation not supported");
+                throw new Error('Cross-Realm Error: Realm creation not supported');
             }
             this.#realm = $262.createRealm();
         }
@@ -58,10 +58,13 @@
             try {
                 this.#realm;
             } catch (error) {
-                throw new TypeError("Cross-Realm Error: invalid realm object");
+                throw new TypeError('Invalid realm object');
             }
-            const string = String(sourceText);
-            return this.#errorCatcher(() => this.#evaluateInRealm(string));
+
+            if (typeof sourceText !== 'string') {
+                throw new TypeError('evaluate expects a string');
+            }
+            return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
         }
 
         // eslint-disable-next-line no-unused-vars
@@ -69,9 +72,9 @@
             try {
                 this.#realm;
             } catch (error) {
-                throw new TypeError("Cross-Realm Error: invalid realm object");
+                throw new TypeError('Invalid realm object');
             }
-            throw new Error('Cross-Realm Error: importValue not supported');
+            throw new Error('importValue not supported');
         }
 }
 
