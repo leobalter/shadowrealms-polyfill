@@ -65,7 +65,12 @@
         }
 
         // eslint-disable-next-line no-unused-vars
-        async importValue(specifier, exportName) {
+        importValue(specifier, exportName) {
+            try {
+                this.#realm;
+            } catch (error) {
+                throw new TypeError("Cross-Realm Error: invalid realm object");
+            }
             throw new Error('Cross-Realm Error: importValue not supported');
         }
 }
