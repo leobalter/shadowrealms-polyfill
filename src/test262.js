@@ -8,6 +8,7 @@
             this.#realm = $262.createRealm();
         }
 
+        #moduleCache = {__proto__: null};
         #realm = null;
 
         #evaluateInRealm = (str) => {
@@ -67,6 +68,12 @@
             return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
         }
 
+        #exportGetter(specifierString, exportNameString) {
+            if (!Object.prototype.hasOwnProperty.call(this.#moduleCache[specifierString], exportNameString)) {
+                throw new TypeError(`${specifierString} has no export named ${exportNameString}`);
+            }
+            return this.#moduleCache[specifierString][exportNameString];
+        }
         // eslint-disable-next-line no-unused-vars
         importValue(specifier, exportName) {
             try {
@@ -78,7 +85,14 @@
             let specifierString = String(specifier);
             let exportNameString = String(exportName);
 
-            return import(specifierString).then(module => module[exportNameString]);
+            if (this.#moduleCache[specifierString]) {
+                return Promise.resolve(this.#exportGetter(specifierString, exportNameString));
+            }
+
+            return import(specifierString).then(module => {
+                this.#moduleCache[specifierString] = module;
+                return this.#exportGetter(specifierString, exportNameString);
+            });
         }
     }
 
