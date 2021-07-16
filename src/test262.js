@@ -55,6 +55,11 @@
         }
 
         evaluate(sourceText) {
+            try {
+                this.#realm;
+            } catch (error) {
+                throw new TypeError("Cross-Realm Error: invalid realm object");
+            }
             const string = String(sourceText);
             return this.#errorCatcher(() => this.#evaluateInRealm(string));
         }
