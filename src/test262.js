@@ -1,30 +1,17 @@
+/* eslint-disable no-undef */
 {
     class Realm {
         constructor() {
-            this.#iframe = document.createElement('iframe');
-            this.#iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
-            this.#iframe.style.display = 'none';
-            this.#realm.attach();
+            if (!$262 || !$262.createRealm) {
+                throw new Error("Cross-Realm Error: Realm creation not supported");
+            }
+            this.#realm = $262.createRealm();
         }
 
-        #iframe = null;
-
-        get #realm() {
-            const attach = () => {
-                document.body.parentElement.appendChild(this.#iframe);
-                return this.#iframe.contentWindow;
-            };
-            const detach = () => {
-                this.#iframe.remove();
-            };
-            return {
-                attach,
-                detach
-            };
-        }
+        #realm = null;
 
         #evaluateInRealm = (str) => {
-            const result = this.#iframe.contentWindow.eval(str);
+            const result = this.#realm.evalScript(str);
 
             return this.#getPrimitiveOrWrappedCallable(result);
         };
@@ -56,13 +43,6 @@
             return value == null || typeof value !== 'object';
         }
 
-        evaluate(str) {
-            if (typeof str !== 'string') {
-                throw new TypeError('argument needs to be a string');
-            }
-            return this.#errorCatcher(() => this.#evaluateInRealm(str));
-        }
-
         #errorCatcher(fn) {
             try {
                 return fn();
@@ -73,7 +53,19 @@
                 throw new TypeError(`Cross-Realm Error: ${String(err)}`);
             }
         }
-    }
+
+        evaluate(str) {
+            if (typeof str !== 'string') {
+                throw new TypeError('argument needs to be a string');
+            }
+            return this.#errorCatcher(() => this.#evaluateInRealm(str));
+        }
+
+        // eslint-disable-next-line no-unused-vars
+        async importValue(specifier, exportName) {
+            throw new Error('Cross-Realm Error: importValue not supported');
+        }
+}
 
     Object.defineProperty(globalThis, 'Realm', {
         value: Realm,
