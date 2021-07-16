@@ -98,9 +98,9 @@
         writable: true,
     });
 
-    Object.defineProperty(Realm.prototype, 'toString', {
+    Object.defineProperty(Realm.prototype, '@@toStringTag', {
         value() {
-            return `[object Realm]`;
+            return `Realm`;
         },
         configurable: false,
         enumerable: false,
