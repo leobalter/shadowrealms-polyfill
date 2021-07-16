@@ -74,7 +74,11 @@
             } catch (error) {
                 throw new TypeError('Invalid realm object');
             }
-            throw new Error('importValue not supported');
+
+            let specifierString = String(specifier);
+            let exportNameString = String(exportName);
+
+            return import(specifierString).then(module => module[exportNameString]);
         }
     }
 
