@@ -56,11 +56,9 @@
             return value == null || typeof value !== 'object';
         }
 
-        evaluate(str) {
-            if (typeof str !== 'string') {
-                throw new TypeError('argument needs to be a string');
-            }
-            return this.#errorCatcher(() => this.#evaluateInRealm(str));
+        evaluate(sourceText) {
+            const string = String(sourceText);
+            return this.#errorCatcher(() => this.#evaluateInRealm(string));
         }
 
         #errorCatcher(fn) {
