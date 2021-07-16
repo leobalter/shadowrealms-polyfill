@@ -60,10 +60,23 @@
             try {
                 this.#realm;
             } catch (error) {
-                throw new TypeError("Cross-Realm Error: invalid realm object");
+                throw new TypeError('Invalid realm object');
             }
-            const string = String(sourceText);
-            return this.#errorCatcher(() => this.#evaluateInRealm(string));
+
+            if (typeof sourceText !== 'string') {
+                throw new TypeError('evaluate expects a string');
+            }
+            return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
+        }
+
+        // eslint-disable-next-line no-unused-vars
+        importValue(specifier, exportName) {
+            try {
+                this.#realm;
+            } catch (error) {
+                throw new TypeError('Invalid realm object');
+            }
+            throw new Error('importValue not supported');
         }
 
         #errorCatcher(fn) {

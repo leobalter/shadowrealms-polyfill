@@ -12,15 +12,70 @@ module('Realm#evaluate', ({ beforeEach }) => {
         r = new Realm();
     });
 
-    test('coerces argument to string', t => {
-        t.expect(7);
-        t.strictEqual(r.evaluate(['1+1']), 2);
-        t.strictEqual(r.evaluate({ [Symbol.toPrimitive]() { return '1+1'; }}), 2);
-        t.strictEqual(r.evaluate(1), 1);
-        t.strictEqual(r.evaluate(null), null);
-        t.strictEqual(r.evaluate(undefined), undefined);
-        t.strictEqual(r.evaluate(true), true);
-        t.strictEqual(r.evaluate(false), false);
+    test('only accepts string arguments', t => {
+        t.throws(
+            () => {
+                r.evaluate(['1+1']);
+            },
+            TypeError,
+            'object with toString'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate({ [Symbol.toPrimitive]() { return '1+1'; }});
+            },
+            TypeError,
+            'object with @@toPrimitive'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(1);
+            },
+            TypeError,
+            'number'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(Symbol());
+            },
+            TypeError,
+            'symbol'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(null);
+            },
+            TypeError,
+            'null'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(undefined);
+            },
+            TypeError,
+            'undefined'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(true);
+            },
+            TypeError,
+            'true'
+        );
+
+        t.throws(
+            () => {
+                r.evaluate(false);
+            },
+            TypeError,
+            'false'
+        );
     });
 
     test('resolves to common primitive values', t => {
