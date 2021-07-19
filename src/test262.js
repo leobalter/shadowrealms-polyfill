@@ -5,14 +5,14 @@
             if (!$262 || !$262.createRealm) {
                 throw new Error('Cross-Realm Error: Realm creation not supported');
             }
-            this.#realm = $262.createRealm();
+            this.#Realm = $262.createRealm();
         }
 
         #moduleCache = {__proto__: null};
-        #realm = null;
+        #Realm = null;
 
         #evaluateInRealm = (str) => {
-            const result = this.#realm.evalScript(str);
+            const result = this.#Realm.evalScript(str);
 
             return this.#getPrimitiveOrWrappedCallable(result);
         };
@@ -55,12 +55,16 @@
             }
         }
 
-        evaluate(sourceText) {
+        #ValidateRealmObject() {
             try {
-                this.#realm;
+                this.#Realm;
             } catch (error) {
                 throw new TypeError('Invalid realm object');
             }
+        }
+
+        evaluate(sourceText) {
+            this.#ValidateRealmObject();
 
             if (typeof sourceText !== 'string') {
                 throw new TypeError('evaluate expects a string');
@@ -68,30 +72,27 @@
             return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
         }
 
-        #exportGetter(specifierString, exportNameString) {
+        #ExportGetter(specifierString, exportNameString) {
             if (!Object.prototype.hasOwnProperty.call(this.#moduleCache[specifierString], exportNameString)) {
                 throw new TypeError(`${specifierString} has no export named ${exportNameString}`);
             }
             return this.#moduleCache[specifierString][exportNameString];
         }
+
         // eslint-disable-next-line no-unused-vars
         importValue(specifier, exportName) {
-            try {
-                this.#realm;
-            } catch (error) {
-                throw new TypeError('Invalid realm object');
-            }
+            this.#ValidateRealmObject();
 
             let specifierString = String(specifier);
             let exportNameString = String(exportName);
 
             if (this.#moduleCache[specifierString]) {
-                return Promise.resolve(this.#exportGetter(specifierString, exportNameString));
+                return Promise.resolve(this.#ExportGetter(specifierString, exportNameString));
             }
 
             return import(specifierString).then(module => {
                 this.#moduleCache[specifierString] = module;
-                return this.#exportGetter(specifierString, exportNameString);
+                return this.#ExportGetter(specifierString, exportNameString);
             });
         }
     }
@@ -105,7 +106,7 @@
 
     Object.defineProperty(Realm.prototype, '@@toStringTag', {
         value() {
-            return `Realm`;
+            return 'Realm';
         },
         configurable: false,
         enumerable: false,
