@@ -14,7 +14,7 @@
             return WrappedFunctionCreate(realm, value);
         }
 
-        if (IsPrimitive(value)) {
+        if (IsPrimitiveOrCallable(value)) {
             return value;
         }
 
@@ -22,7 +22,7 @@
         throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
     }
 
-    function IsPrimitive(value) {
+    function IsPrimitiveOrCallable(value) {
         return value == null || typeof value !== 'object';
     }
 
