@@ -1,5 +1,31 @@
 /* eslint-disable no-undef */
+/* eslint-disable no-inner-declarations */
 {
+    function WrappedFunctionCreate(callerRealm, connectedFn) {
+        const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
+
+        return function(...args) {
+            return GetWrappedValueForCallerRealm(connectedFn(...args.map(GetWrappedValueForCallerRealm)));
+        }
+    }
+
+    function GetWrappedValue(realm, value) {
+        if (typeof value === 'function') {
+            return WrappedFunctionCreate(realm, value);
+        }
+
+        if (IsPrimitive(value)) {
+            return value;
+        }
+
+        // type is 'object';
+        throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
+    }
+
+    function IsPrimitive(value) {
+        return value == null || typeof value !== 'object';
+    }
+
     class Realm {
         constructor() {
             if (!$262 || !$262.createRealm) {
@@ -11,38 +37,11 @@
         #moduleCache = {__proto__: null};
         #Realm = null;
 
-        #evaluateInRealm = (str) => {
+        #PerformRealmEval = (str) => {
             const result = this.#Realm.evalScript(str);
 
-            return this.#getPrimitiveOrWrappedCallable(result);
+            return GetWrappedValue(this, result);
         };
-
-        #getPrimitiveOrWrappedCallable(value) {
-            if (typeof value === 'function') {
-                return this.#wrap(value);
-            }
-
-            if (this.#isPrimitive(value)) {
-                return value;
-            }
-
-            // type is 'object';
-            throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
-        }
-
-        #wrap(connectedFn) {
-            const getPrimitiveOrWrappedCallable = this.#getPrimitiveOrWrappedCallable.bind(this);
-
-            return function(...args) {
-                const wrappedArgs = args.map(getPrimitiveOrWrappedCallable);
-
-                return getPrimitiveOrWrappedCallable(connectedFn(...wrappedArgs));
-            }
-        }
-
-        #isPrimitive(value) {
-            return value == null || typeof value !== 'object';
-        }
 
         #errorCatcher(fn) {
             try {
@@ -69,7 +68,7 @@
             if (typeof sourceText !== 'string') {
                 throw new TypeError('evaluate expects a string');
             }
-            return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
+            return this.#errorCatcher(() => this.#PerformRealmEval(sourceText));
         }
 
         #ExportGetter(specifierString, exportNameString) {
