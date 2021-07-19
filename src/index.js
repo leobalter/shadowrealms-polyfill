@@ -4,12 +4,12 @@
             this.#iframe = document.createElement('iframe');
             this.#iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
             this.#iframe.style.display = 'none';
-            this.#realm.attach();
+            this.#Realm.attach();
         }
 
         #iframe = null;
 
-        get #realm() {
+        get #Realm() {
             const attach = () => {
                 document.body.parentElement.appendChild(this.#iframe);
                 return this.#iframe.contentWindow;
@@ -56,27 +56,12 @@
             return value == null || typeof value !== 'object';
         }
 
-        evaluate(sourceText) {
+        #ValidateRealmObject() {
             try {
-                this.#realm;
+                this.#Realm;
             } catch (error) {
                 throw new TypeError('Invalid realm object');
             }
-
-            if (typeof sourceText !== 'string') {
-                throw new TypeError('evaluate expects a string');
-            }
-            return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
-        }
-
-        // eslint-disable-next-line no-unused-vars
-        importValue(specifier, exportName) {
-            try {
-                this.#realm;
-            } catch (error) {
-                throw new TypeError('Invalid realm object');
-            }
-            throw new Error('importValue not supported');
         }
 
         #errorCatcher(fn) {
@@ -89,6 +74,22 @@
                 throw new TypeError(`Cross-Realm Error: ${String(err)}`);
             }
         }
+
+        evaluate(sourceText) {
+            this.#ValidateRealmObject();
+
+            if (typeof sourceText !== 'string') {
+                throw new TypeError('evaluate expects a string');
+            }
+            return this.#errorCatcher(() => this.#evaluateInRealm(sourceText));
+        }
+
+        // eslint-disable-next-line no-unused-vars
+        importValue(specifier, exportName) {
+            this.#ValidateRealmObject();
+
+            throw new Error('importValue not yet supported');
+        }
     }
 
     Object.defineProperty(globalThis, 'Realm', {
@@ -100,7 +101,7 @@
 
     Object.defineProperty(Realm.prototype, '@@toStringTag', {
         value() {
-            return `Realm`;
+            return 'Realm';
         },
         configurable: false,
         enumerable: false,
