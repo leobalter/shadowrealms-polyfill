@@ -33,6 +33,7 @@
             this.#Realm.attach();
         }
 
+        #moduleCache = {__proto__: null};
         #iframe = null;
 
         get #Realm() {
@@ -82,11 +83,28 @@
             return this.#errorCatcher(() => this.#PerformRealmEval(sourceText));
         }
 
+        #ExportGetter(specifierString, exportNameString) {
+            if (!Object.prototype.hasOwnProperty.call(this.#moduleCache[specifierString], exportNameString)) {
+                throw new TypeError(`${specifierString} has no export named ${exportNameString}`);
+            }
+            return this.#moduleCache[specifierString][exportNameString];
+        }
+
         // eslint-disable-next-line no-unused-vars
         importValue(specifier, exportName) {
             this.#ValidateRealmObject();
 
-            throw new Error('importValue not yet supported');
+            let specifierString = String(specifier);
+            let exportNameString = String(exportName);
+
+            if (this.#moduleCache[specifierString]) {
+                return Promise.resolve(this.#ExportGetter(specifierString, exportNameString));
+            }
+
+            return import(specifierString).then(module => {
+                this.#moduleCache[specifierString] = module;
+                return this.#ExportGetter(specifierString, exportNameString);
+            });
         }
     }
 
