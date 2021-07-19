@@ -1,7 +1,8 @@
 {
     "env": {
         "browser": true,
-        "es2021": true
+        "es2021": true,
+        "node": true
     },
     "parser": "@babel/eslint-parser",
     "plugins": ["inclusive-language", "qunit"],
