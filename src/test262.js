@@ -1,5 +1,8 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-inner-declarations */
+const d8Realm = typeof globalThis.Realm !== 'undefined' ? globalThis.Realm : null;
+const jscRealm = typeof $262 !== 'undefined' ? $262.createRealm : null;
+const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
 {
     function WrappedFunctionCreate(callerRealm, connectedFn) {
         const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
@@ -26,12 +29,31 @@
         return value == null || typeof value !== 'object';
     }
 
+    function HostCreateRealm() {
+        const realmCreator = d8Realm ? d8Realm.createAllowCrossRealmAccess : (jsshellRealm ? jsshellRealm : (jscRealm ? jscRealm : null));
+        if (!realmCreator) {
+            throw new Error('Cross-Realm Error: Realm creation not supported');
+        }
+        const realm = realmCreator();
+        return {
+            evalScript(code) {
+                if (d8Realm) {
+                    return d8Realm.eval(realm, code);
+                }
+
+                if (jsshellRealm) {
+                    return realm.eval(code);
+                }
+
+                if (jscRealm) {
+                    return realm.evalScript(code);
+                }
+            }
+        };
+    }
     class Realm {
         constructor() {
-            if (!$262 || !$262.createRealm) {
-                throw new Error('Cross-Realm Error: Realm creation not supported');
-            }
-            this.#Realm = $262.createRealm();
+            this.#Realm = HostCreateRealm();
         }
 
         #moduleCache = {__proto__: null};
