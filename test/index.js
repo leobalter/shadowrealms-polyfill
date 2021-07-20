@@ -392,7 +392,7 @@ module('Realm#importValue', ({ beforeEach }) => {
     });
 
     // eslint-disable-next-line qunit/resolve-async
-    test.only('can import a default export', assert => {
+    test('can import a default export', assert => {
         const done = assert.async();
         Promise.all([
             r.importValue(`../test/module.js`, 'default'),
