@@ -1,15 +1,15 @@
 const { module, test } = QUnit;
 
-module('Realm', () => {
-    test('returns a new instance using a global Realm', assert => {
-        assert.ok(new Realm);
+module('ShadowRealm', () => {
+    test('returns a new instance using a global ShadowRealm', assert => {
+        assert.ok(new ShadowRealm);
     });
 });
 
-module('Realm#evaluate', ({ beforeEach }) => {
+module('ShadowRealm#evaluate', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
-        r = new Realm();
+        r = new ShadowRealm();
     });
 
     test('only accepts string arguments', assert => {
@@ -96,8 +96,8 @@ module('Realm#evaluate', ({ beforeEach }) => {
 
         assert.strictEqual(typeof s, 'symbol');
         assert.ok(Symbol.prototype.toString.call(s));
-        assert.strictEqual(s.constructor, Symbol, 'primitive does not expose other Realm constructor');
-        assert.strictEqual(Object.getPrototypeOf(s), Symbol.prototype, '__proto__ of s is from the blue realm');
+        assert.strictEqual(s.constructor, Symbol, 'primitive does not expose other ShadowRealm constructor');
+        assert.strictEqual(Object.getPrototypeOf(s), Symbol.prototype, '__proto__ of s is from the blue ShadowRealm');
         assert.strictEqual(r.evaluate('Symbol.for("x")'), Symbol.for('x'));
     });
 
@@ -114,7 +114,7 @@ module('Realm#evaluate', ({ beforeEach }) => {
         assert.throws(() => r.evaluate('Object.create(null)'), 'ordinary object with null __proto__');
     });
 
-    test('Errors from the other realm is wrapped into a TypeError', assert => {
+    test('Errors from the other ShadowRealm is wrapped into a TypeError', assert => {
         assert.throws(() => r.evaluate('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
         assert.throws(() => r.evaluate('throw 42'), TypeError, 'throw primitive => TypeError');
         assert.throws(() => r.evaluate('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
@@ -278,7 +278,7 @@ module('Realm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
         });
 
-        test('arguments are wrapped into the inner Realm', assert => {
+        test('arguments are wrapped into the inner ShadowRealm', assert => {
             const blueFn = (x, y) => x + y;
 
             const redWrappedFn = r.evaluate(`
@@ -289,7 +289,7 @@ module('Realm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(redWrappedFn(blueFn, 2, 3, 4), 20);
         });
 
-        test('arguments are wrapped into the inner Realm, extended', assert => {
+        test('arguments are wrapped into the inner ShadowRealm, extended', assert => {
             const blueFn = (x, y) => x + y;
 
             const redWrappedFn = r.evaluate(`
@@ -330,7 +330,7 @@ module('Realm#evaluate', ({ beforeEach }) => {
                 return myValue;
             }
 
-            // cb is a new function in the red Realm that chains the call to the blueFn
+            // cb is a new function in the red ShadowRealm that chains the call to the blueFn
             const redFunction = r.evaluate(`
                 var myValue = 'red';
                 0, function(cb) {
@@ -346,10 +346,10 @@ module('Realm#evaluate', ({ beforeEach }) => {
 });
 
 
-module('Realm#importValue', ({ beforeEach }) => {
+module('ShadowRealm#importValue', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
-        r = new Realm();
+        r = new ShadowRealm();
     });
 
     // eslint-disable-next-line qunit/resolve-async

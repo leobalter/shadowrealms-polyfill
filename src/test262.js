@@ -1,18 +1,19 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-inner-declarations */
-const d8Realm = typeof globalThis.Realm !== 'undefined' ? globalThis.Realm : null;
-const jscRealm = typeof $262 !== 'undefined' ? $262.createRealm : null;
-const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
 {
-    function WrappedFunctionCreate(callerRealm, connectedFn) {
+    const d8Realm = typeof globalThis.Realm !== 'undefined' ? globalThis.Realm : null;
+    const jscRealm = typeof $262 !== 'undefined' ? $262.createRealm : null;
+    const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
+
+    const WrappedFunctionCreate = (callerRealm, connectedFn) => {
         const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
 
         return function(...args) {
             return GetWrappedValueForCallerRealm(connectedFn(...args.map(GetWrappedValueForCallerRealm)));
         }
-    }
+    };
 
-    function GetWrappedValue(realm, value) {
+    const GetWrappedValue = (realm, value) => {
         if (typeof value === 'function') {
             return WrappedFunctionCreate(realm, value);
         }
@@ -22,17 +23,17 @@ const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
         }
 
         // type is 'object';
-        throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
-    }
+        throw new TypeError('Cross-Realm Error: Evaluation result is not a primitive value');
+    };
 
-    function IsPrimitiveOrCallable(value) {
+    const IsPrimitiveOrCallable = (value) => {
         return value == null || typeof value !== 'object';
-    }
+    };
 
-    function HostCreateRealm() {
+    const HostCreateRealm = () => {
         const realmCreator = d8Realm ? d8Realm.createAllowCrossRealmAccess : (jsshellRealm ? jsshellRealm : (jscRealm ? jscRealm : null));
         if (!realmCreator) {
-            throw new Error('Cross-Realm Error: Realm creation not supported');
+            throw new Error('Cross-Realm Error: ShadowRealm creation not supported');
         }
         const realm = realmCreator();
         return {
@@ -50,8 +51,8 @@ const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
                 }
             }
         };
-    }
-    class Realm {
+    };
+    class ShadowRealm {
         constructor() {
             this.#Realm = HostCreateRealm();
         }
@@ -118,18 +119,16 @@ const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
         }
     }
 
-    Object.defineProperty(globalThis, 'Realm', {
-        value: Realm,
+    Object.defineProperty(globalThis, 'ShadowRealm', {
+        value: ShadowRealm,
         configurable: true,
         enumerable: false,
         writable: true,
     });
 
-    Object.defineProperty(Realm.prototype, '@@toStringTag', {
-        value() {
-            return 'Realm';
-        },
-        configurable: false,
+    Object.defineProperty(ShadowRealm.prototype, Symbol.toStringTag, {
+        value: 'ShadowRealm',
+        configurable: true,
         enumerable: false,
         writable: false,
     });
