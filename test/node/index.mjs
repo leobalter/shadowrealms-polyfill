@@ -1,18 +1,18 @@
-const { module, test } = QUnit;
+import '../../src/node.mjs';
 
-module('ShadowRealm', () => {
-    test('returns a new instance using a global ShadowRealm', assert => {
+QUnit.module('ShadowRealm', () => {
+    QUnit.test('returns a new instance using a global ShadowRealm', assert => {
         assert.ok(new ShadowRealm);
     });
 });
 
-module('ShadowRealm#evaluate', ({ beforeEach }) => {
+QUnit.module('ShadowRealm#evaluate', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new ShadowRealm();
     });
 
-    test('only accepts string arguments', assert => {
+    QUnit.test('only accepts string arguments', assert => {
         assert.throws(
             () => {
                 r.evaluate(['1+1']);
@@ -78,7 +78,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
         );
     });
 
-    test('resolves to common primitive values', assert => {
+    QUnit.test('resolves to common primitive values', assert => {
         assert.strictEqual(r.evaluate('1 + 1'), 2);
         assert.strictEqual(r.evaluate('null'), null);
         assert.strictEqual(r.evaluate(''), undefined, 'undefined from empty completion');
@@ -91,7 +91,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
         assert.strictEqual(r.evaluate('"str"'), 'str');
     });
 
-    test('resolves to symbol values (primitives)', assert => {
+    QUnit.test('resolves to symbol values (primitives)', assert => {
         const s = r.evaluate('Symbol()');
 
         assert.strictEqual(typeof s, 'symbol');
@@ -101,7 +101,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
         assert.strictEqual(r.evaluate('Symbol.for("x")'), Symbol.for('x'));
     });
 
-    test('throws a TypeError if evaluate resolves to object values', assert => {
+    QUnit.test('throws a TypeError if evaluate resolves to object values', assert => {
         assert.throws(() => r.evaluate('globalThis'), TypeError, 'globalThis');
         assert.throws(() => r.evaluate('[]'), TypeError, 'array literal');
         assert.throws(() => r.evaluate(`
@@ -114,15 +114,15 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
         assert.throws(() => r.evaluate('Object.create(null)'), 'ordinary object with null __proto__');
     });
 
-    test('Errors from the other ShadowRealm is wrapped into a TypeError', assert => {
+    QUnit.test('Errors from the other ShadowRealm is wrapped into a TypeError', assert => {
         assert.throws(() => r.evaluate('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
         assert.throws(() => r.evaluate('throw 42'), TypeError, 'throw primitive => TypeError');
         assert.throws(() => r.evaluate('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
         assert.throws(() => r.evaluate('throw new TypeError("aaa")'), TypeError, 'RedTypeError => BlueTypeError');
     });
 
-    module('wrapped functions', () => {
-        test('accepts callable objects', assert => {
+    QUnit.module('wrapped functions', () => {
+        QUnit.test('accepts callable objects', assert => {
             assert.strictEqual(typeof r.evaluate('function fn() {} fn'), 'function', 'value from a fn declaration');
             assert.strictEqual(typeof r.evaluate('(function() {})'), 'function', 'function expression');
             assert.strictEqual(typeof r.evaluate('(async function() {})'), 'function', 'async function expression');
@@ -131,7 +131,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(typeof r.evaluate('() => {}'), 'function', 'arrow function');
         });
 
-        test('wrapped functions share no properties', assert => {
+        QUnit.test('wrapped functions share no properties', assert => {
             const wrapped = r.evaluate(`
                 function fn() {
                     return fn.secret;
@@ -145,7 +145,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(wrapped(), 'confidential');
         });
 
-        test('wrapped functions share no properties, extended', assert => {
+        QUnit.test('wrapped functions share no properties, extended', assert => {
             // this extends the previous test
             r.evaluate(`
                 function fn() { return 42; }
@@ -199,7 +199,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
         });
 
-        test('new wrapping on each evaluation', assert => {
+        QUnit.test('new wrapping on each evaluation', assert => {
             r.evaluate(`
                 function fn() {
                     return 42;
@@ -214,7 +214,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(typeof otherWrapped, 'function');
         });
 
-        test('wrapped functions can resolve callable returns', assert => {
+        QUnit.test('wrapped functions can resolve callable returns', assert => {
             const wrapped = r.evaluate('x => y => x * y');
             const nestedWrapped = wrapped(2);
             const otherNestedWrapped = wrapped(4);
@@ -225,7 +225,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.notStrictEqual(nestedWrapped, otherNestedWrapped, 'new wrapping for each return');
         });
 
-        test('wrapped function from return values share no identity', assert => {
+        QUnit.test('wrapped function from return values share no identity', assert => {
             r.evaluate(`
                 function fn() { return 42; }
                 globalThis.arrow = x => x * 2;
@@ -278,7 +278,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(wrappedGenerator.x, undefined, 'generator, no property');
         });
 
-        test('arguments are wrapped into the inner ShadowRealm', assert => {
+        QUnit.test('arguments are wrapped into the inner ShadowRealm', assert => {
             const blueFn = (x, y) => x + y;
 
             const redWrappedFn = r.evaluate(`
@@ -289,7 +289,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(redWrappedFn(blueFn, 2, 3, 4), 20);
         });
 
-        test('arguments are wrapped into the inner ShadowRealm, extended', assert => {
+        QUnit.test('arguments are wrapped into the inner ShadowRealm, extended', assert => {
             const blueFn = (x, y) => x + y;
 
             const redWrappedFn = r.evaluate(`
@@ -322,7 +322,7 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
             assert.strictEqual(redWrappedFn(blueFn, blueFn, redWrappedFn), true);
         });
 
-        test('Wrapped function observing their scopes', assert => {
+        QUnit.test('Wrapped function observing their scopes', assert => {
             let myValue;
 
             function blueFn(x) {
@@ -346,18 +346,18 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
 });
 
 
-module('ShadowRealm#importValue', ({ beforeEach }) => {
+QUnit.module('ShadowRealm#importValue', ({ beforeEach }) => {
     let r;
     beforeEach(() => {
         r = new ShadowRealm();
     });
 
     // eslint-disable-next-line qunit/resolve-async
-    test('can import a primitive', assert => {
+    QUnit.test('can import a primitive', assert => {
         const done = assert.async();
         Promise.all([
-            r.importValue(`../test/module.js`, 'x'),
-            r.importValue(`../test/module.js`, 'x')
+            r.importValue(`../test/node/module.mjs`, 'x'),
+            r.importValue(`../test/node/module.mjs`, 'x')
         ]).then(imports => {
             assert.strictEqual(imports[0], imports[1]);
             assert.strictEqual(imports[0], 1);
@@ -365,11 +365,11 @@ module('ShadowRealm#importValue', ({ beforeEach }) => {
     });
 
     // eslint-disable-next-line qunit/resolve-async
-    test('can import a function', assert => {
+    QUnit.test('can import a function', assert => {
         const done = assert.async();
         Promise.all([
-            r.importValue(`../test/module.js`, 'foo'),
-            r.importValue(`../test/module.js`, 'foo')
+            r.importValue(`../test/node/module.mjs`, 'foo'),
+            r.importValue(`../test/node/module.mjs`, 'foo')
         ]).then(imports => {
             assert.strictEqual(imports[0], imports[1]);
             assert.strictEqual(imports[0](), 'foo');
@@ -377,11 +377,11 @@ module('ShadowRealm#importValue', ({ beforeEach }) => {
     });
 
     // eslint-disable-next-line qunit/resolve-async
-    test('can import a class', assert => {
+    QUnit.test('can import a class', assert => {
         const done = assert.async();
         Promise.all([
-            r.importValue(`../test/module.js`, 'Bar'),
-            r.importValue(`../test/module.js`, 'Bar')
+            r.importValue(`../test/node/module.mjs`, 'Bar'),
+            r.importValue(`../test/node/module.mjs`, 'Bar')
         ]).then(imports => {
             assert.strictEqual(imports[0], imports[1]);
             assert.strictEqual(imports[0].name, 'Bar');
@@ -392,11 +392,11 @@ module('ShadowRealm#importValue', ({ beforeEach }) => {
     });
 
     // eslint-disable-next-line qunit/resolve-async
-    test('can import a default export', assert => {
+    QUnit.test('can import a default export', assert => {
         const done = assert.async();
         Promise.all([
-            r.importValue(`../test/module.js`, 'default'),
-            r.importValue(`../test/module.js`, 'default')
+            r.importValue(`../test/node/module.mjs`, 'default'),
+            r.importValue(`../test/node/module.mjs`, 'default')
         ]).then(imports => {
             assert.strictEqual(imports[0], imports[1]);
             assert.strictEqual(imports[0].name, 'Spaz');

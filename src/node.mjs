@@ -1,9 +1,6 @@
-/* eslint-disable no-undef */
-{
-    const d8Realm = typeof globalThis.Realm !== 'undefined' ? globalThis.Realm : null;
-    const jscRealm = typeof $262 !== 'undefined' ? $262.createRealm : null;
-    const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
+import { runInNewContext } from 'vm';
 
+{
     const WrappedFunctionCreate = (callerRealm, connectedFn) => {
         const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
 
@@ -12,9 +9,9 @@
         }
     };
 
-    const GetWrappedValue = (realm, value) => {
+    const GetWrappedValue = (callerRealm, value) => {
         if (typeof value === 'function') {
-            return WrappedFunctionCreate(realm, value);
+            return WrappedFunctionCreate(callerRealm, value);
         }
 
         if (IsPrimitiveOrCallable(value)) {
@@ -41,27 +38,14 @@
     };
 
     const HostCreateRealm = () => {
-        const realmCreator = d8Realm ? d8Realm.createAllowCrossRealmAccess : (jsshellRealm ? jsshellRealm : (jscRealm ? jscRealm : null));
-        if (!realmCreator) {
-            throw new Error('ShadowRealm creation not supported');
-        }
-        const realm = realmCreator();
+        const context = runInNewContext(`globalThis`);
         return {
-            evalScript(code) {
-                if (d8Realm) {
-                    return d8Realm.eval(realm, code);
-                }
-
-                if (jsshellRealm) {
-                    return realm.eval(code);
-                }
-
-                if (jscRealm) {
-                    return realm.evalScript(code);
-                }
-            }
+            evalScript(sourceText) {
+                return context.eval(sourceText);
+            },
         };
     };
+
     class ShadowRealm {
         constructor() {
             this.#Realm = HostCreateRealm();
