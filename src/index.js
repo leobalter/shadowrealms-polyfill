@@ -1,14 +1,14 @@
 /* eslint-disable no-inner-declarations */
 {
-    function WrappedFunctionCreate(callerRealm, connectedFn) {
+    const WrappedFunctionCreate = (callerRealm, connectedFn) => {
         const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
 
         return function(...args) {
             return GetWrappedValueForCallerRealm(connectedFn(...args.map(GetWrappedValueForCallerRealm)));
         }
-    }
+    };
 
-    function GetWrappedValue(realm, value) {
+    const GetWrappedValue = (realm, value) => {
         if (typeof value === 'function') {
             return WrappedFunctionCreate(realm, value);
         }
@@ -18,14 +18,14 @@
         }
 
         // type is 'object';
-        throw new TypeError('Cross-Realm Error, Evaluation result is not a primitive value');
-    }
+        throw new TypeError('Cross-Realm Error: Evaluation result is not a primitive value');
+    };
 
-    function IsPrimitiveOrCallable(value) {
+    const IsPrimitiveOrCallable = (value) => {
         return value == null || typeof value !== 'object';
-    }
+    };
 
-    class Realm {
+    class ShadowRealm {
         constructor() {
             this.#iframe = document.createElement('iframe');
             this.#iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
@@ -108,18 +108,16 @@
         }
     }
 
-    Object.defineProperty(globalThis, 'Realm', {
-        value: Realm,
+    Object.defineProperty(globalThis, 'ShadowRealm', {
+        value: ShadowRealm,
         configurable: true,
         enumerable: false,
         writable: true,
     });
 
-    Object.defineProperty(Realm.prototype, '@@toStringTag', {
-        value() {
-            return 'Realm';
-        },
-        configurable: false,
+    Object.defineProperty(ShadowRealm.prototype, Symbol.toStringTag, {
+        value: 'ShadowRealm',
+        configurable: true,
         enumerable: false,
         writable: false,
     });

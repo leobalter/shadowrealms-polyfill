@@ -5,7 +5,7 @@
         "node": true
     },
     "globals": {
-        "Realm": "readonly",
+        "ShadowRealm": "readonly",
         "QUnit": "readonly"
     }
 }
