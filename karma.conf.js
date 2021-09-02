@@ -2,10 +2,10 @@ module.exports = function (config) {
     config.set({
         basePath: '',
         frameworks: ['qunit'],
-        files: ['src/index.js', 'test/index.js', { pattern: 'test/module.js', type: 'module' }],
+        files: ['src/index.js', 'test/browser/index.js', { pattern: 'test/browser/module.js', type: 'module' }],
         preprocessors: {
             'src/index.js': ['coverage', 'eslint'],
-            'test/**/*.js': ['eslint']
+            'test/browser/**/*.js': ['eslint']
         },
         reporters: ['progress', 'coverage', 'summary'],
         summaryReporter: {
