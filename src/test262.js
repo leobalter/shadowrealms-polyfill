@@ -30,10 +30,21 @@
         return value == null || typeof value !== 'object';
     };
 
+    const PerformRealmEval = (sourceText, callerRealm, evalRealm) => {
+        const result = evalRealm.evalScript(sourceText);
+        return GetWrappedValue(callerRealm, result);
+    };
+
+    const ValidateRealmObject = (realm) => {
+        if (!realm || (realm && typeof realm.evalScript !== 'function')) {
+            throw new TypeError('Invalid ShadowRealm object');
+        }
+    };
+
     const HostCreateRealm = () => {
         const realmCreator = d8Realm ? d8Realm.createAllowCrossRealmAccess : (jsshellRealm ? jsshellRealm : (jscRealm ? jscRealm : null));
         if (!realmCreator) {
-            throw new Error('Cross-Realm Error: ShadowRealm creation not supported');
+            throw new Error('ShadowRealm creation not supported');
         }
         const realm = realmCreator();
         return {
@@ -60,12 +71,6 @@
         #moduleCache = {__proto__: null};
         #Realm = null;
 
-        #PerformRealmEval = (str) => {
-            const result = this.#Realm.evalScript(str);
-
-            return GetWrappedValue(this, result);
-        };
-
         #errorCatcher(fn) {
             try {
                 return fn();
@@ -77,21 +82,13 @@
             }
         }
 
-        #ValidateRealmObject() {
-            try {
-                this.#Realm;
-            } catch (error) {
-                throw new TypeError('Invalid realm object');
-            }
-        }
-
         evaluate(sourceText) {
-            this.#ValidateRealmObject();
+            ValidateRealmObject(this.#Realm);
 
             if (typeof sourceText !== 'string') {
                 throw new TypeError('evaluate expects a string');
             }
-            return this.#errorCatcher(() => this.#PerformRealmEval(sourceText));
+            return this.#errorCatcher(() => PerformRealmEval(sourceText, this, this.#Realm));
         }
 
         #ExportGetter(specifierString, exportNameString) {
@@ -103,7 +100,7 @@
 
         // eslint-disable-next-line no-unused-vars
         importValue(specifier, exportName) {
-            this.#ValidateRealmObject();
+            ValidateRealmObject(this.#Realm);
 
             let specifierString = String(specifier);
             let exportNameString = String(exportName);
