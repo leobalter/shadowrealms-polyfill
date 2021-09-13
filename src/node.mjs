@@ -27,7 +27,18 @@ import { runInNewContext } from 'vm';
     };
 
     const PerformRealmEval = (sourceText, callerRealm, evalRealm) => {
-        const result = evalRealm.evalScript(sourceText);
+        let result;
+
+        try {
+            result = evalRealm.evalScript(sourceText);
+        } catch (error) {
+            if (error.toString().includes('SyntaxError')) {
+                throw new SyntaxError(error.message);
+            } else {
+                throw error;
+            }
+        }
+
         return GetWrappedValue(callerRealm, result);
     };
 
@@ -57,11 +68,14 @@ import { runInNewContext } from 'vm';
         #errorCatcher(fn) {
             try {
                 return fn();
-            } catch (err) {
-                if (err && typeof err === 'object') {
-                    throw new TypeError(`Cross-Realm Error: ${err.name}: ${err.message}`)
+            } catch (error) {
+                if (error && typeof error === 'object') {
+                    if (error instanceof SyntaxError) {
+                        throw new SyntaxError(error.message);
+                    }
+                    throw new TypeError(`Cross-Realm Error: ${error.name}: ${error.message}`)
                 } // Else
-                throw new TypeError(`Cross-Realm Error: ${String(err)}`);
+                throw new TypeError(`Cross-Realm Error: ${String(error)}`);
             }
         }
 
