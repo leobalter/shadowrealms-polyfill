@@ -114,14 +114,22 @@ module('ShadowRealm#evaluate', ({ beforeEach }) => {
         assert.throws(() => r.evaluate('Object.create(null)'), 'ordinary object with null __proto__');
     });
 
-    test('Errors from the other ShadowRealm is wrapped into a TypeError', assert => {
-        assert.throws(() => r.evaluate('...'), TypeError, 'SyntaxError => TypeError'); // SyntaxError
+    test('SyntaxError exceptions from the other ShadowRealm is results in a SyntaxError', assert => {
+        assert.throws(() => r.evaluate('...'), SyntaxError);
+    });
+
+    test('non-SyntaxError exceptions from the other ShadowRealm is wrapped into a TypeError', assert => {
         assert.throws(() => r.evaluate('throw 42'), TypeError, 'throw primitive => TypeError');
         assert.throws(() => r.evaluate('throw new ReferenceError("aaa")'), TypeError, 'custom ctor => TypeError');
         assert.throws(() => r.evaluate('throw new TypeError("aaa")'), TypeError, 'RedTypeError => BlueTypeError');
     });
 
-    module('wrapped functions', () => {
+    module('wrapped functions', ({ beforeEach }) => {
+        let r;
+        beforeEach(() => {
+            r = new ShadowRealm();
+        });
+
         test('accepts callable objects', assert => {
             assert.strictEqual(typeof r.evaluate('function fn() {} fn'), 'function', 'value from a fn declaration');
             assert.strictEqual(typeof r.evaluate('(function() {})'), 'function', 'function expression');

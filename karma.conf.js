@@ -4,10 +4,10 @@ module.exports = function (config) {
         frameworks: ['qunit'],
         files: ['src/index.js', 'test/browser/index.js', { pattern: 'test/browser/module.js', type: 'module' }],
         preprocessors: {
-            'src/index.js': ['coverage', 'eslint'],
+            'src/index.js': ['eslint'],
             'test/browser/**/*.js': ['eslint']
         },
-        reporters: ['progress', 'coverage', 'summary'],
+        reporters: ['progress', 'summary'],
         summaryReporter: {
             show: 'all',
             specLength: 100,
