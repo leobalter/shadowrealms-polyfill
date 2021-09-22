@@ -5,6 +5,13 @@
         const jscRealm = typeof $262 !== 'undefined' ? $262.createRealm : null;
         const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
 
+        const d8SyntaxChecker = null;
+        // const jscSyntaxChecker = typeof globalThis.checkModuleSyntax !== 'undefined' ? globalThis.checkModuleSyntax : null;
+        const jscSyntaxChecker = null;
+        const jsshellSyntaxChecker = typeof globalThis.syntaxParse !== 'undefined' ? globalThis.syntaxParse : null;
+
+        class ParseCheckError extends SyntaxError {}
+
         const WrappedFunctionCreate = (callerRealm, connectedFn) => {
             const GetWrappedValueForCallerRealm = value => GetWrappedValue(callerRealm, value);
 
@@ -36,10 +43,10 @@
             try {
                 result = evalRealm.evalScript(sourceText);
             } catch (error) {
-                if (error.toString().includes('SyntaxError')) {
+                if (error instanceof ParseCheckError) {
                     throw new SyntaxError(error.message);
                 } else {
-                    throw error;
+                    throw new TypeError(error.message);
                 }
             }
 
@@ -57,9 +64,19 @@
             if (!realmCreator) {
                 throw new Error('ShadowRealm creation not supported');
             }
+            const syntaxChecker = d8SyntaxChecker || jscSyntaxChecker || jsshellSyntaxChecker;
             const realm = realmCreator();
             const evalRealm = {
                 evalScript(code) {
+
+                    if (syntaxChecker) {
+                        try {
+                            syntaxChecker(code);
+                        } catch (error) {
+                            throw new ParseCheckError(error.message);
+                        }
+                    }
+
                     if (d8Realm) {
                         return d8Realm.eval(realm, code);
                     }
