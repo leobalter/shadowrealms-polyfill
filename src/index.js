@@ -32,10 +32,10 @@
             try {
                 result = evalRealm.evalScript(sourceText);
             } catch (error) {
-                if (error.toString().includes('SyntaxError')) {
+                if (String(error).includes('SyntaxError')) {
                     throw new SyntaxError(error.message);
                 } else {
-                    throw error;
+                    throw new TypeError(String(error));
                 }
             }
 
