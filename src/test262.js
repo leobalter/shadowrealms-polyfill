@@ -6,8 +6,7 @@
         const jsshellRealm = typeof newGlobal !== 'undefined' ? newGlobal : null;
 
         const d8SyntaxChecker = null;
-        // const jscSyntaxChecker = typeof globalThis.checkModuleSyntax !== 'undefined' ? globalThis.checkModuleSyntax : null;
-        const jscSyntaxChecker = null;
+        const jscSyntaxChecker = typeof globalThis.checkScriptSyntax !== 'undefined' ? globalThis.checkScriptSyntax : null;
         const jsshellSyntaxChecker = typeof globalThis.syntaxParse !== 'undefined' ? globalThis.syntaxParse : null;
 
         class ParseCheckError extends SyntaxError {}
