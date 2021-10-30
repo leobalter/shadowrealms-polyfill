@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "types": "./shadow-realm.d.ts",
   "scripts": {
     "watch": "karma start",
     "test:ci": "karma start --browsers=ChromeHeadless,FirefoxHeadless --single-run",
